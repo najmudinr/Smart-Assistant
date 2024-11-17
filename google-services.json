@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "872161769698",
+    "firebase_url": "https://smart-assistant-gudang-iii-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "smart-assistant-gudang-iii",
+    "storage_bucket": "smart-assistant-gudang-iii.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:872161769698:android:36833be944c008604f86bb",
+        "android_client_info": {
+          "package_name": "com.smartassistant"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAyQxWtqb_9lsILnhUDKuHBsO-ULqvVeCs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
