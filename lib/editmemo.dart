@@ -27,6 +27,7 @@ class _EditMemoPageState extends State<EditMemoPage> {
   String _selectedOrigin = 'Bagian';
   String _selectedStatus = 'Di Rekap Sekretaris';
   String _selectedNotes = 'Pending';
+  String _selectedDestination = 'VP Pergudangan dan Pengantongan';
 
   DateTime? _submissionDate;
   DateTime? _avpSendDate;
@@ -43,8 +44,10 @@ class _EditMemoPageState extends State<EditMemoPage> {
   }
 
   Future<void> _loadMemoData() async {
-    DocumentSnapshot memoSnapshot =
-        await FirebaseFirestore.instance.collection('internal_memos').doc(widget.memoId).get();
+    DocumentSnapshot memoSnapshot = await FirebaseFirestore.instance
+        .collection('internal_memos')
+        .doc(widget.memoId)
+        .get();
 
     if (memoSnapshot.exists) {
       setState(() {
@@ -58,30 +61,42 @@ class _EditMemoPageState extends State<EditMemoPage> {
         _followUpController.text = memoSnapshot['follow_up'] ?? '';
         _relatedPicController.text = memoSnapshot['related_pic'] ?? '';
         _uploadedFileUrl = memoSnapshot['document_archive'];
-        _submissionDate = (memoSnapshot['submission_date'] as Timestamp?)?.toDate();
+        _submissionDate =
+            (memoSnapshot['submission_date'] as Timestamp?)?.toDate();
         _avpSendDate = (memoSnapshot['avp_send_date'] as Timestamp?)?.toDate();
-        _avpReceivedDate = (memoSnapshot['avp_received_date'] as Timestamp?)?.toDate();
+        _avpReceivedDate =
+            (memoSnapshot['avp_received_date'] as Timestamp?)?.toDate();
         _vpSendDate = (memoSnapshot['vp_send_date'] as Timestamp?)?.toDate();
-        _vpReceivedDate = (memoSnapshot['vp_received_date'] as Timestamp?)?.toDate();
+        _vpReceivedDate =
+            (memoSnapshot['vp_received_date'] as Timestamp?)?.toDate();
       });
     }
   }
 
   Future<void> _updateMemo() async {
     try {
-      await FirebaseFirestore.instance.collection('internal_memos').doc(widget.memoId).update({
+      await FirebaseFirestore.instance
+          .collection('internal_memos')
+          .doc(widget.memoId)
+          .update({
         'memo_number': _memoNumberController.text,
         'creator': _creatorController.text,
         'origin': _selectedOrigin,
         'destination': _destinationController.text,
         'subject': _subjectController.text,
-        'submission_date':
-            _submissionDate != null ? Timestamp.fromDate(_submissionDate!) : null,
-        'avp_send_date': _avpSendDate != null ? Timestamp.fromDate(_avpSendDate!) : null,
-        'avp_received_date':
-            _avpReceivedDate != null ? Timestamp.fromDate(_avpReceivedDate!) : null,
-        'vp_send_date': _vpSendDate != null ? Timestamp.fromDate(_vpSendDate!) : null,
-        'vp_received_date': _vpReceivedDate != null ? Timestamp.fromDate(_vpReceivedDate!) : null,
+        'submission_date': _submissionDate != null
+            ? Timestamp.fromDate(_submissionDate!)
+            : null,
+        'avp_send_date':
+            _avpSendDate != null ? Timestamp.fromDate(_avpSendDate!) : null,
+        'avp_received_date': _avpReceivedDate != null
+            ? Timestamp.fromDate(_avpReceivedDate!)
+            : null,
+        'vp_send_date':
+            _vpSendDate != null ? Timestamp.fromDate(_vpSendDate!) : null,
+        'vp_received_date': _vpReceivedDate != null
+            ? Timestamp.fromDate(_vpReceivedDate!)
+            : null,
         'status': _selectedStatus,
         'notes': _selectedNotes,
         'follow_up': _followUpController.text,
@@ -99,7 +114,8 @@ class _EditMemoPageState extends State<EditMemoPage> {
     }
   }
 
-  Future<void> _selectDate(BuildContext context, Function(DateTime) onDatePicked) async {
+  Future<void> _selectDate(
+      BuildContext context, Function(DateTime) onDatePicked) async {
     DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
@@ -178,42 +194,66 @@ class _EditMemoPageState extends State<EditMemoPage> {
                   });
                 },
               ),
-              TextFormField(
-                controller: _destinationController,
+              DropdownButtonFormField<String>(
+                value: _selectedDestination,
                 decoration: InputDecoration(labelText: 'Tujuan Memo'),
+                items: [
+                  'VP Pergudangan dan Pengantongan',
+                  'AVP Bagian Gudang dan Pengantongan Area III'
+                ].map((destination) {
+                  return DropdownMenuItem<String>(
+                    value: destination,
+                    child: Text(destination),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedDestination = value!;
+                  });
+                },
               ),
               TextFormField(
                 controller: _subjectController,
                 decoration: InputDecoration(labelText: 'Perihal Pengajuan'),
               ),
               SizedBox(height: 10),
-              Text('Tanggal Pengajuan: ${_submissionDate != null ? DateFormat('dd MMM yyyy').format(_submissionDate!) : 'Belum dipilih'}'),
+              Text(
+                  'Tanggal Pengajuan: ${_submissionDate != null ? DateFormat('dd MMM yyyy').format(_submissionDate!) : 'Belum dipilih'}'),
               ElevatedButton(
-                onPressed: () => _selectDate(context, (picked) => _submissionDate = picked),
+                onPressed: () =>
+                    _selectDate(context, (picked) => _submissionDate = picked),
                 child: Text('Pilih Tanggal Pengajuan'),
               ),
               SizedBox(height: 10),
-              Text('Tanggal Pengiriman ke AVP: ${_avpSendDate != null ? DateFormat('dd MMM yyyy').format(_avpSendDate!) : 'Belum dipilih'}'),
+              Text(
+                  'Tanggal Pengiriman ke AVP: ${_avpSendDate != null ? DateFormat('dd MMM yyyy').format(_avpSendDate!) : 'Belum dipilih'}'),
               ElevatedButton(
-                onPressed: () => _selectDate(context, (picked) => _avpSendDate = picked),
+                onPressed: () =>
+                    _selectDate(context, (picked) => _avpSendDate = picked),
                 child: Text('Pilih Tanggal Pengiriman ke AVP'),
               ),
               SizedBox(height: 10),
-              Text('Tanggal Diterima AVP: ${_avpReceivedDate != null ? DateFormat('dd MMM yyyy').format(_avpReceivedDate!) : 'Belum dipilih'}'),
+              Text(
+                  'Tanggal Diterima AVP: ${_avpReceivedDate != null ? DateFormat('dd MMM yyyy').format(_avpReceivedDate!) : 'Belum dipilih'}'),
               ElevatedButton(
-                onPressed: () => _selectDate(context, (picked) => _avpReceivedDate = picked),
+                onPressed: () =>
+                    _selectDate(context, (picked) => _avpReceivedDate = picked),
                 child: Text('Pilih Tanggal Diterima AVP'),
               ),
               SizedBox(height: 10),
-              Text('Tanggal Pengiriman ke VP: ${_vpSendDate != null ? DateFormat('dd MMM yyyy').format(_vpSendDate!) : 'Belum dipilih'}'),
+              Text(
+                  'Tanggal Pengiriman ke VP: ${_vpSendDate != null ? DateFormat('dd MMM yyyy').format(_vpSendDate!) : 'Belum dipilih'}'),
               ElevatedButton(
-                onPressed: () => _selectDate(context, (picked) => _vpSendDate = picked),
+                onPressed: () =>
+                    _selectDate(context, (picked) => _vpSendDate = picked),
                 child: Text('Pilih Tanggal Pengiriman ke VP'),
               ),
               SizedBox(height: 10),
-              Text('Tanggal Diterima VP: ${_vpReceivedDate != null ? DateFormat('dd MMM yyyy').format(_vpReceivedDate!) : 'Belum dipilih'}'),
+              Text(
+                  'Tanggal Diterima VP: ${_vpReceivedDate != null ? DateFormat('dd MMM yyyy').format(_vpReceivedDate!) : 'Belum dipilih'}'),
               ElevatedButton(
-                onPressed: () => _selectDate(context, (picked) => _vpReceivedDate = picked),
+                onPressed: () =>
+                    _selectDate(context, (picked) => _vpReceivedDate = picked),
                 child: Text('Pilih Tanggal Diterima VP'),
               ),
               DropdownButtonFormField<String>(

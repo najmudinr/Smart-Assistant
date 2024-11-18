@@ -1,9 +1,8 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
-import 'package:smartassistant/main.dart';
 import 'dart:async';
-
 import 'package:smartassistant/models/agenda.dart';
+import 'package:smartassistant/main.dart'; // Impor flutterLocalNotificationsPlugin
 
 class AgendaNotifier {
   Timer? _timer;
@@ -14,7 +13,9 @@ class AgendaNotifier {
       final now = DateTime.now();
       for (final agenda in agendas) {
         final timeDifference = agenda.waktu.difference(now).inMinutes;
-        if (timeDifference > 0 && timeDifference <= 30) { // Alert sebelum 30 menit
+
+        if (timeDifference > 0 && timeDifference <= 5) {
+          // Alert sebelum 30 menit
           _showNotification(agenda);
         }
       }
@@ -26,19 +27,22 @@ class AgendaNotifier {
   }
 
   Future<void> _showNotification(Agenda agenda) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'agenda_alert_channel',
-      'Agenda Alerts',
+      'agenda_alert_channel', // Channel ID
+      'Agenda Alerts', // Channel Name
+      channelDescription: 'Notifikasi untuk agenda mendatang',
       importance: Importance.high,
       priority: Priority.high,
+      ticker: 'ticker',
     );
 
-    const NotificationDetails platformChannelSpecifics =
+    final NotificationDetails platformChannelSpecifics =
         NotificationDetails(android: androidPlatformChannelSpecifics);
 
+    // Tampilkan notifikasi hanya sekali untuk agenda yang sama
     await flutterLocalNotificationsPlugin.show(
-      agenda.id.hashCode,
+      agenda.id.hashCode, // ID Unik berdasarkan hash agenda.id
       'Agenda Akan Dimulai',
       'Agenda "${agenda.agenda}" dimulai pada ${DateFormat('HH:mm').format(agenda.waktu)}',
       platformChannelSpecifics,

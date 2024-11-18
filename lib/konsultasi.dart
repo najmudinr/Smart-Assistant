@@ -157,78 +157,103 @@ class _ConsultationPageState extends State<ConsultationPage> {
     String topic = consultation['topic'] ?? 'Unknown Topic';
     String priority = consultation['priority'] ?? 'Unknown';
     String status = consultation['status'] ?? 'Unknown';
+    String userId = consultation['userId'] ?? 'Unknown';
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: screenHeight * 0.02),
-      child: Card(
-        color: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        elevation: 4,
-        child: Padding(
-          padding: EdgeInsets.all(screenWidth * 0.04),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Topik: $topic',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-              SizedBox(height: screenHeight * 0.01),
-              Text(
-                'Dimulai pada: $formattedDate',
-                style: TextStyle(fontSize: 14),
-              ),
-              SizedBox(height: screenHeight * 0.01),
-              Text(
-                'Status: $status',
-                style: TextStyle(
-                  color: status == 'Aktif' ? Colors.red : Colors.green,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-              SizedBox(height: screenHeight * 0.005),
-              Text(
-                'Prioritas: $priority',
-                style: TextStyle(
-                  color: priority == 'Rendah' ? Colors.green : Colors.red,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-              SizedBox(height: screenHeight * 0.01),
-              Align(
-                alignment: Alignment.bottomRight,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => DetailConsultationPage(
-                            consultationId: consultation.id),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return Text('Pengirim tidak ditemukan');
+        }
+
+        String userName = snapshot.data!['name'] ?? 'Unknown Name';
+
+        return Padding(
+          padding: EdgeInsets.only(bottom: screenHeight * 0.02),
+          child: Card(
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 4,
+            child: Padding(
+              padding: EdgeInsets.all(screenWidth * 0.04),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pengirim: $userName',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
                     ),
                   ),
-                  child: const Text('Lihat Detail'),
-                ),
+                  Text(
+                    'Topik: $topic',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  SizedBox(height: screenHeight * 0.01),
+                  Text(
+                    'Dimulai pada: $formattedDate',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  SizedBox(height: screenHeight * 0.01),
+                  Text(
+                    'Status: $status',
+                    style: TextStyle(
+                      color: status == 'Aktif' ? Colors.red : Colors.green,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  SizedBox(height: screenHeight * 0.005),
+                  Text(
+                    'Prioritas: $priority',
+                    style: TextStyle(
+                      color: priority == 'Rendah' ? Colors.green : Colors.red,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  SizedBox(height: screenHeight * 0.01),
+                  Align(
+                    alignment: Alignment.bottomRight,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => DetailConsultationPage(
+                                consultationId: consultation.id),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('Lihat Detail'),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

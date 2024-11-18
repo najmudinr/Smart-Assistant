@@ -1,4 +1,3 @@
-// lib/widgets/agenda_card.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:smartassistant/editagenda.dart';
@@ -33,6 +32,17 @@ class AgendaCard extends StatelessWidget {
     return DateFormat('dd MMM yyyy, HH:mm').format(dateTime);
   }
 
+  // Method to create routine agenda
+  Agenda getRoutineAgenda() {
+    return Agenda(
+      waktu: DateTime(DateTime.now().year, DateTime.now().month,
+          DateTime.now().day, 7, 15),
+      agenda: 'Daily Bagging Performance Review',
+      personel: ['Semua Karyawan'],
+      tempat: 'Zoom Meetings', id: '',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<Agenda>>(
@@ -46,7 +56,21 @@ class AgendaCard extends StatelessWidget {
           return Center(child: Text('Terjadi kesalahan'));
         }
 
-        final agendas = snapshot.data ?? [];
+        final allAgendas = snapshot.data ?? [];
+
+        // Filter for today's agenda
+        final today = DateTime.now();
+        final filteredAgendas = allAgendas
+            .where((agenda) =>
+                agenda.waktu.year == today.year &&
+                agenda.waktu.month == today.month &&
+                agenda.waktu.day == today.day)
+            .toList();
+
+        // Add routine agenda if today is Monday-Friday
+        if (today.weekday >= 1 && today.weekday <= 5) {
+          filteredAgendas.add(getRoutineAgenda());
+        }
 
         return Card(
           color: Colors.white,
@@ -81,8 +105,8 @@ class AgendaCard extends StatelessWidget {
                           IconButton(
                             icon: Icon(Icons.edit, color: Colors.cyan),
                             onPressed: () {
-                              if (agendas.isNotEmpty) {
-                                navigateToEditPage(context, agendas.first);
+                              if (filteredAgendas.isNotEmpty) {
+                                navigateToEditPage(context, filteredAgendas.first);
                               } else {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
@@ -110,7 +134,7 @@ class AgendaCard extends StatelessWidget {
                       DataColumn(label: Text('Personel')),
                       DataColumn(label: Text('Tempat')),
                     ],
-                    rows: agendas.map((agenda) {
+                    rows: filteredAgendas.map((agenda) {
                       return DataRow(cells: [
                         DataCell(Text(formatDateTime(agenda.waktu))),
                         DataCell(Text(agenda.agenda)),

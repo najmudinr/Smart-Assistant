@@ -22,6 +22,7 @@ class _AddMemoPageState extends State<AddMemoPage> {
   String _selectedOrigin = 'Bagian'; // Default value
   String _selectedStatus = 'Di Rekap Sekretaris'; // Default value
   String _selectedNotes = 'Pending'; // Default value
+  String _selectedDestination = 'VP Pergudangan dan Pengantongan';
 
   DateTime? _submissionDate;
   DateTime? _avpSendDate;
@@ -89,19 +90,18 @@ class _AddMemoPageState extends State<AddMemoPage> {
 //   }
 // }
 
-
   Future<void> _addMemo() async {
     try {
-    //   await _uploadFile(); // Unggah file sebelum menyimpan data
+      //   await _uploadFile(); // Unggah file sebelum menyimpan data
 
-    //   if (_uploadedFileUrl == null) {
-    //     ScaffoldMessenger.of(context).showSnackBar(
-    //       SnackBar(
-    //           content:
-    //               Text('Gagal menyimpan memo: File tidak berhasil diunggah')),
-    //     );
-    //     return; // Jangan lanjutkan jika file gagal diunggah
-    //   }
+      //   if (_uploadedFileUrl == null) {
+      //     ScaffoldMessenger.of(context).showSnackBar(
+      //       SnackBar(
+      //           content:
+      //               Text('Gagal menyimpan memo: File tidak berhasil diunggah')),
+      //     );
+      //     return; // Jangan lanjutkan jika file gagal diunggah
+      //   }
 
       await FirebaseFirestore.instance.collection('internal_memos').add({
         'memo_number': _memoNumberController.text,
@@ -192,9 +192,23 @@ class _AddMemoPageState extends State<AddMemoPage> {
                   });
                 },
               ),
-              TextFormField(
-                controller: _tujuanController,
-                decoration: InputDecoration(labelText: 'Tujuan memo'),
+              DropdownButtonFormField<String>(
+                value: _selectedDestination,
+                decoration: InputDecoration(labelText: 'Tujuan Memo'),
+                items: [
+                  'VP Pergudangan dan Pengantongan',
+                  'AVP Bagian Gudang dan Pengantongan Area III'
+                ].map((destination) {
+                  return DropdownMenuItem<String>(
+                    value: destination,
+                    child: Text(destination),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedDestination = value!;
+                  });
+                },
               ),
               TextFormField(
                 controller: _subjectController,
@@ -306,7 +320,7 @@ class _AddMemoPageState extends State<AddMemoPage> {
               //     ),
               //   ],
               // ),
-              
+
               SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
@@ -323,4 +337,3 @@ class _AddMemoPageState extends State<AddMemoPage> {
     );
   }
 }
-

@@ -6,11 +6,13 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:smartassistant/asktoexpert.dart';
 import 'package:smartassistant/dashboardmemo.dart';
 import 'package:smartassistant/konsultasi.dart';
+import 'package:smartassistant/models/agenda.dart';
 import 'package:smartassistant/pengajuan.dart';
 import 'package:smartassistant/diskusirapat.dart';
 import 'package:smartassistant/penugasan.dart';
 import 'package:smartassistant/projectmanagement.dart';
 import 'package:smartassistant/iqc.dart';
+import 'package:smartassistant/services/agenda_notifier.dart';
 import 'package:smartassistant/widgets/agenda_card.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -22,12 +24,14 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   String? userName;
+   final AgendaNotifier _agendaNotifier = AgendaNotifier();
 
   @override
   void initState() {
     super.initState();
     _loadUserName();
     _fetchUserNameFromFirestore(); // Tambahkan ini untuk memanggil Firestore
+    _loadAgendas();
   }
 
   Future<void> _loadUserName() async {
@@ -66,6 +70,28 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+    void _loadAgendas() async {
+    // Contoh daftar agenda
+    List<Agenda> agendas = [
+      Agenda(
+        id: '1',
+        waktu: DateTime.now().add(Duration(minutes: 20)), // Agenda dalam 20 menit
+        agenda: 'Rapat Tim',
+        personel: ['John Doe', 'Jane Doe'],
+        tempat: 'Ruang Rapat',
+      ),
+    ];
+
+    // Kirim agenda ke AgendaNotifier
+    _agendaNotifier.startMonitoring(agendas);
+  }
+
+    @override
+  void dispose() {
+    _agendaNotifier.stopMonitoring(); // Hentikan monitoring saat halaman ditutup
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -94,7 +120,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
 
                 SizedBox(height: screenHeight * 0.02),
-
+                
                 // Widget Dashboard Ikon Navigasi tanpa Expanded
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
