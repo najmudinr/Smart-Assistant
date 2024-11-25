@@ -123,8 +123,7 @@ class DiskusiRapatPage extends StatelessWidget {
                                         context,
                                         MaterialPageRoute(
                                           builder: (context) => DetailDiskusiRapatPage(
-                                            rapatId: rapatId, // Kirim ID rapat
-                                            currentUserRole: '',
+                                            rapatId: rapatId, currentUserRole: '', // Kirim ID rapat
                                           ),
                                         ),
                                       );

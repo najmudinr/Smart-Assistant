@@ -70,20 +70,18 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-    void _loadAgendas() async {
-    // Contoh daftar agenda
-    List<Agenda> agendas = [
-      Agenda(
-        id: '1',
-        waktu: DateTime.now().add(Duration(minutes: 20)), // Agenda dalam 20 menit
-        agenda: 'Rapat Tim',
-        personel: ['John Doe', 'Jane Doe'],
-        tempat: 'Ruang Rapat',
-      ),
-    ];
+  void _loadAgendas() {
+    // Ambil agenda dari Firestore dan kirim ke AgendaNotifier
+    FirebaseFirestore.instance
+        .collection('agendas')
+        .snapshots()
+        .listen((snapshot) {
+      final agendas = snapshot.docs.map((doc) {
+        return Agenda.fromFirestore(doc);
+      }).toList();
 
-    // Kirim agenda ke AgendaNotifier
-    _agendaNotifier.startMonitoring(agendas);
+      _agendaNotifier.startMonitoring(agendas); // Monitor agenda dari Firestore
+    });
   }
 
     @override

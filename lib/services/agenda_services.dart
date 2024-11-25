@@ -14,7 +14,9 @@ class AgendaService {
   // Ambil semua agenda
   Stream<List<Agenda>> getAgendas() {
     return _agendaCollection.snapshots().map((querySnapshot) {
-      return querySnapshot.docs.map((doc) => Agenda.fromFirestore(doc)).toList();
+      return querySnapshot.docs
+          .map((doc) => Agenda.fromFirestore(doc))
+          .toList();
     });
   }
 

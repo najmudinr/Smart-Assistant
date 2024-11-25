@@ -1,523 +1,223 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
 
 class ProductPage extends StatefulWidget {
   @override
   _ProductPageState createState() => _ProductPageState();
 }
 
-class _ProductPageState extends State<ProductPage>
-    with SingleTickerProviderStateMixin {
-  TabController? _tabController;
-  DateTimeRange? _selectedDateRange;
-  String? _selectedWarehouse;
+class _ProductPageState extends State<ProductPage> {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  List<Map<String, dynamic>> _products = [];
+  Map<String, dynamic>? _selectedProduct;
+  List<Map<String, dynamic>> _warehouses = [];
+  Position? _userLocation;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _fetchProducts();
+    _getUserLocation();
   }
 
-  Future<void> _selectDateRange(BuildContext context) async {
-    final DateTimeRange? picked = await showDateRangePicker(
-      context: context,
-      initialDateRange: _selectedDateRange,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-    );
-    if (picked != null && picked != _selectedDateRange) {
+  // Fetch products from Firestore
+  Future<void> _fetchProducts() async {
+    try {
+      QuerySnapshot snapshot = await _firestore.collection('products').get();
       setState(() {
-        _selectedDateRange = picked;
+        _products = snapshot.docs
+            .map((doc) => {
+                  'id': doc.id,
+                  ...doc.data() as Map<String, dynamic>,
+                })
+            .toList();
       });
+    } catch (e) {
+      print("Error fetching products: $e");
     }
+  }
+
+  // Fetch warehouses for the selected product
+  Future<void> _fetchProductDetails(String productId) async {
+    try {
+      DocumentSnapshot productSnapshot =
+          await _firestore.collection('products').doc(productId).get();
+      QuerySnapshot warehouseSnapshot = await _firestore
+          .collection('products')
+          .doc(productId)
+          .collection('warehouses')
+          .get();
+
+      setState(() {
+        _selectedProduct = {
+          'id': productId,
+          ...productSnapshot.data() as Map<String, dynamic>,
+        };
+        _warehouses = warehouseSnapshot.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return {
+            'id': doc.id,
+            'name': data['name'] ?? 'Unknown',
+            'stock': data['stock'] ?? 0,
+            'latitude': (data['latitude'] is String)
+                ? double.parse(data['latitude'])
+                : data['latitude'] as double,
+            'longitude': (data['longitude'] is String)
+                ? double.parse(data['longitude'])
+                : data['longitude'] as double,
+          };
+        }).toList();
+      });
+    } catch (e) {
+      print("Error fetching product details: $e");
+    }
+  }
+
+  // Get user location
+  Future<void> _getUserLocation() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      print("Location services are disabled.");
+      return;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        print("Location permissions are denied.");
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      print("Location permissions are permanently denied.");
+      return;
+    }
+
+    Position position = await Geolocator.getCurrentPosition(
+      // ignore: deprecated_member_use
+      desiredAccuracy: LocationAccuracy.high,
+    );
+
+    setState(() {
+      _userLocation = position;
+    });
+  }
+
+  // Calculate distance between user and warehouse
+  double _calculateDistance(
+      double lat1, double lon1, double lat2, double lon2) {
+    if (lat1 == 0.0 || lon1 == 0.0 || lat2 == 0.0 || lon2 == 0.0) {
+      return double.infinity; // Invalid data
+    }
+    return Geolocator.distanceBetween(lat1, lon1, lat2, lon2) / 1000; // km
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Tab Bar
-            TabBar(
-              controller: _tabController,
-              labelColor: Colors.teal,
-              unselectedLabelColor: Colors.black,
-              indicatorColor: Colors.teal,
-              tabs: const [
-                Tab(text: "Shipping In/Out"),
-                Tab(text: "Performa Produk"),
-                Tab(text: "Booked Area"),
-              ],
-            ),
-
-            // Tab Views
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Dropdown
+              Row(
                 children: [
-                  // Shipping In/Out Tab
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: DropdownButtonFormField<String>(
-                                  value: _selectedWarehouse,
-                                  decoration: InputDecoration(
-                                    labelText: "Pilih Gudang",
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  items: <String>[
-                                    'Gudang 1',
-                                    'Gudang 2',
-                                    'Gudang 3'
-                                  ].map((String value) {
-                                    return DropdownMenuItem<String>(
-                                      value: value,
-                                      child: Text(value),
-                                    );
-                                  }).toList(),
-                                  onChanged: (String? newValue) {
-                                    setState(() {
-                                      _selectedWarehouse = newValue;
-                                    });
-                                  },
-                                ),
-                              ),
-                              SizedBox(width: 16),
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () => _selectDateRange(context),
-                                  child: AbsorbPointer(
-                                    child: TextFormField(
-                                      decoration: InputDecoration(
-                                        labelText: _selectedDateRange == null
-                                            ? "Pilih Tanggal"
-                                            : "${_selectedDateRange!.start.toLocal()} - ${_selectedDateRange!.end.toLocal()}",
-                                        border: OutlineInputBorder(),
-                                        suffixIcon: Icon(Icons.calendar_today),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 16),
-                          Center(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                // Tambahkan logika untuk menampilkan data berdasarkan pilihan
-                                print("Gudang: $_selectedWarehouse");
-                                print(
-                                    "Tanggal: ${_selectedDateRange?.start} - ${_selectedDateRange?.end}");
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange,
-                              ),
-                              child: Text("Tampilkan"),
-                            ),
-                          ),
-                          SizedBox(height: 16),
-                          // Table
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: DataTable(
-                              columns: [
-                                DataColumn(
-                                  label: Container(
-                                    color: Colors.orange,
-                                    padding: EdgeInsets.all(8),
-                                    child: Text(
-                                      "Produk",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                                DataColumn(
-                                  label: Container(
-                                    color: Colors.orange,
-                                    padding: EdgeInsets.all(8),
-                                    child: Text(
-                                      "Stock Awal",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                                DataColumn(
-                                  label: Container(
-                                    color: Colors.orange,
-                                    padding: EdgeInsets.all(8),
-                                    child: Text(
-                                      "Produksi",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                                DataColumn(
-                                  label: Container(
-                                    color: Colors.orange,
-                                    padding: EdgeInsets.all(8),
-                                    child: Text(
-                                      "Gudang Penyangga",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                                DataColumn(
-                                  label: Container(
-                                    color: Colors.orange,
-                                    padding: EdgeInsets.all(8),
-                                    child: Text(
-                                      "Ex Impor",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                                DataColumn(
-                                  label: Container(
-                                    color: Colors.orange,
-                                    padding: EdgeInsets.all(8),
-                                    child: Text(
-                                      "Gudang Internal",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                                DataColumn(
-                                  label: Container(
-                                    color: Colors.orange,
-                                    padding: EdgeInsets.all(8),
-                                    child: Text(
-                                      "Rebag (+)",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                                DataColumn(
-                                  label: Container(
-                                    color: Colors.orange,
-                                    padding: EdgeInsets.all(8),
-                                    child: Text(
-                                      "Adjusment (+)",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                                DataColumn(
-                                  label: Container(
-                                    color: Colors.orange,
-                                    padding: EdgeInsets.all(8),
-                                    child: Text(
-                                      "Total Pemasukan",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                              rows: [
-                                DataRow(
-                                  cells: [
-                                    DataCell(Text("NPK PHONSKA PLUS @25KG")),
-                                    DataCell(Text("6,986.375")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                  ],
-                                ),
-                                DataRow(
-                                  cells: [
-                                    DataCell(Text("NPK 15-10-12 Sub @50KG")),
-                                    DataCell(Text("13,086.700")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                  ],
-                                ),
-                                DataRow(
-                                  cells: [
-                                    DataCell(Text("Urea SUB @50 KG")),
-                                    DataCell(Text("11,208.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                  ],
-                                ),
-                                DataRow(
-                                  cells: [
-                                    DataCell(Text("SP 26 NS @25KG")),
-                                    DataCell(Text("16,370.200")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                  ],
-                                ),
-                                DataRow(
-                                  cells: [
-                                    DataCell(Text("Nitralite NS @25KG")),
-                                    DataCell(Text("1,527.875")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                    DataCell(Text("0.000")),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      decoration: InputDecoration(
+                        labelText: "Pilih Produk",
+                        border: OutlineInputBorder(),
                       ),
-                    ),
-                  ),
-                  // Performa Produk Tab
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Center(
-                          child: Text(
-                            "Performa Produk",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: 16),
-                        Expanded(
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: DataTable(
-                              columns: [
-                                DataColumn(
-                                  label: Container(
-                                    color: Colors.amber,
-                                    padding: EdgeInsets.all(8),
-                                    child: Text(
-                                      "Product",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                                DataColumn(
-                                  label: Container(
-                                    color: Colors.amber,
-                                    padding: EdgeInsets.all(8),
-                                    child: Text(
-                                      "Stock Awal",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                                DataColumn(
-                                  label: Container(
-                                    color: Colors.amber,
-                                    padding: EdgeInsets.all(8),
-                                    child: Text(
-                                      "Produksi",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                                DataColumn(
-                                  label: Container(
-                                    color: Colors.amber,
-                                    padding: EdgeInsets.all(8),
-                                    child: Text(
-                                      "Total Pemasukan",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                              rows: [
-                                DataRow(
-                                  cells: [
-                                    DataCell(Text("Product 1")),
-                                    DataCell(Text("100")),
-                                    DataCell(Text("50")),
-                                    DataCell(Text("150")),
-                                  ],
-                                ),
-                                DataRow(
-                                  cells: [
-                                    DataCell(Text("Product 2")),
-                                    DataCell(Text("200")),
-                                    DataCell(Text("100")),
-                                    DataCell(Text("300")),
-                                  ],
-                                ),
-                                DataRow(
-                                  cells: [
-                                    DataCell(Text("Product 3")),
-                                    DataCell(Text("300")),
-                                    DataCell(Text("150")),
-                                    DataCell(Text("450")),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Booked Area Tab
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Center(
-                          child: Text(
-                            "Booked Area",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: 16),
-                        Expanded(
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: DataTable(
-                              columns: [
-                                DataColumn(
-                                  label: Container(
-                                    color: Colors.blue,
-                                    padding: EdgeInsets.all(8),
-                                    child: Text(
-                                      "Area",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                                DataColumn(
-                                  label: Container(
-                                    color: Colors.blue,
-                                    padding: EdgeInsets.all(8),
-                                    child: Text(
-                                      "Tanggal Booking",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                                DataColumn(
-                                  label: Container(
-                                    color: Colors.blue,
-                                    padding: EdgeInsets.all(8),
-                                    child: Text(
-                                      "Waktu Booking",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                                DataColumn(
-                                  label: Container(
-                                    color: Colors.blue,
-                                    padding: EdgeInsets.all(8),
-                                    child: Text(
-                                      "Status",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                              rows: [
-                                DataRow(
-                                  cells: [
-                                    DataCell(Text("Area 1")),
-                                    DataCell(Text("2023-08-28")),
-                                    DataCell(Text("10:00 AM - 12:00 PM")),
-                                    DataCell(Text("Confirmed")),
-                                  ],
-                                ),
-                                DataRow(
-                                  cells: [
-                                    DataCell(Text("Area 2")),
-                                    DataCell(Text("2023-08-29")),
-                                    DataCell(Text("01:00 PM - 03:00 PM")),
-                                    DataCell(Text("Pending")),
-                                  ],
-                                ),
-                                DataRow(
-                                  cells: [
-                                    DataCell(Text("Area 3")),
-                                    DataCell(Text("2023-08-30")),
-                                    DataCell(Text("09:00 AM - 11:00 AM")),
-                                    DataCell(Text("Cancelled")),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
+                      items: _products.map((product) {
+                        return DropdownMenuItem<String>(
+                          value: product['id'],
+                          child: Text(product['name'] ?? "Tanpa Nama"),
+                        );
+                      }).toList(),
+                      onChanged: (String? value) {
+                        if (value != null) {
+                          _fetchProductDetails(value);
+                        }
+                      },
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
+              SizedBox(height: 16),
+
+              if (_selectedProduct != null) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Container dengan gambar dari URL Firestore
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        image: DecorationImage(
+                          image: NetworkImage(
+                            _selectedProduct?['imageUrl'] ??
+                                'https://via.placeholder.com/100',
+                          ),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 16),
+                    // Deskripsi produk
+                    Expanded(
+                      child: Text(
+                        _selectedProduct?['description'] ??
+                            "Deskripsi tidak tersedia.",
+                        style: TextStyle(fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16),
+              ],
+
+              // Warehouse Section
+              if (_warehouses.isNotEmpty && _userLocation != null) ...[
+                Text(
+                  "Lokasi Produk di Gudang:",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                SizedBox(height: 16),
+                ..._warehouses.map((warehouse) {
+                  double distance = _calculateDistance(
+                    _userLocation!.latitude,
+                    _userLocation!.longitude,
+                    warehouse['latitude'] ?? 0.0,
+                    warehouse['longitude'] ?? 0.0,
+                  );
+
+                  return Card(
+                    child: ListTile(
+                      title:
+                          Text(warehouse['name'] ?? "Gudang Tidak Diketahui"),
+                      subtitle: Text(
+                        "Stok: ${warehouse['stock'] ?? "Tidak tersedia"}",
+                      ),
+                      trailing: Text("${distance.toStringAsFixed(1)} km"),
+                    ),
+                  );
+                }),
+              ] else if (_userLocation == null) ...[
+                Text(
+                  "Sedang mengambil lokasi pengguna...",
+                  style: TextStyle(color: Colors.red),
+                )
+              ],
+            ],
+          ),
         ),
       ),
     );

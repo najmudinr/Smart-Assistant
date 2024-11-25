@@ -9,6 +9,13 @@ class AbsensiPage extends StatefulWidget {
 
 class _AbsensiPageState extends State<AbsensiPage> {
   DateTime? _selectedDate;
+  final _dateController = TextEditingController();
+
+  @override
+  void dispose() {
+    _dateController.dispose();
+    super.dispose();
+  }
 
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
@@ -20,6 +27,7 @@ class _AbsensiPageState extends State<AbsensiPage> {
     if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
+        _dateController.text = DateFormat('dd/MM/yyyy').format(picked);
       });
     }
   }
@@ -27,109 +35,106 @@ class _AbsensiPageState extends State<AbsensiPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Date Picker Row
-            Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => _selectDate(context),
-                    child: AbsorbPointer(
-                      child: TextFormField(
-                        decoration: const InputDecoration(
-                          labelText: 'Pilih Tanggal',
-                          suffixIcon: Icon(Icons.calendar_today),
-                          border: OutlineInputBorder(),
-                        ),
-                        controller: TextEditingController(
-                          text: _selectedDate != null
-                              ? DateFormat('dd/MM/yyyy').format(_selectedDate!)
-                              : '',
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Date Picker Row
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _selectDate(context),
+                      child: AbsorbPointer(
+                        child: TextFormField(
+                          controller: _dateController,
+                          decoration: const InputDecoration(
+                            labelText: 'Pilih Tanggal',
+                            suffixIcon: Icon(Icons.calendar_today),
+                            border: OutlineInputBorder(),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
+                ],
+              ),
+              const SizedBox(height: 20),
 
-            // Summary Cards
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildSummaryCard('Pegawai', '110 Orang', Icons.person),
-                _buildSummaryCard('Cuti', '2 Orang', Icons.luggage),
-                _buildSummaryCard('Sakit', '2 Orang', Icons.sick),
-                _buildSummaryCard('Izin', '2 Orang', Icons.book),
-              ],
-            ),
-            const SizedBox(height: 20),
+              // Summary Cards
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildSummaryCard('Pegawai', '110 Orang', Icons.person),
+                  _buildSummaryCard('Cuti', '2 Orang', Icons.luggage),
+                  _buildSummaryCard('Sakit', '2 Orang', Icons.sick),
+                  _buildSummaryCard('Izin', '2 Orang', Icons.book),
+                ],
+              ),
+              const SizedBox(height: 20),
 
-            // Line Chart Placeholder
-            Expanded(
-              child: Container(
+              // Line Chart Section
+              Container(
                 padding: const EdgeInsets.all(8.0),
                 color: Colors.white,
-                child: AttendanceLineChart(
-                  tepatWaktuSpots: const [
-                    FlSpot(0, 60),
-                    FlSpot(1, 58),
-                    FlSpot(2, 60),
-                    FlSpot(3, 56),
-                    FlSpot(4, 65),
-                  ],
-                  terlambatSpots: const [
-                    FlSpot(0, 1),
-                    FlSpot(1, 0),
-                    FlSpot(2, 1),
-                    FlSpot(3, 1),
-                    FlSpot(4, 1),
-                  ],
-                  tidakPresensiSpots: const [
-                    FlSpot(0, 2),
-                    FlSpot(1, 2),
-                    FlSpot(2, 2),
-                    FlSpot(3, 2),
-                    FlSpot(4, 2),
-                  ],
-                  bottomTitles: const [
-                    '22',
-                    '23',
-                    '24',
-                    '25',
-                    '26',
+                child: Column(
+                  children: [
+                    SizedBox(
+                      height: 250,
+                      child: AttendanceLineChart(
+                        tepatWaktuSpots: const [
+                          FlSpot(0, 60),
+                          FlSpot(1, 58),
+                          FlSpot(2, 60),
+                          FlSpot(3, 56),
+                          FlSpot(4, 65),
+                        ],
+                        terlambatSpots: const [
+                          FlSpot(0, 1),
+                          FlSpot(1, 0),
+                          FlSpot(2, 1),
+                          FlSpot(3, 1),
+                          FlSpot(4, 1),
+                        ],
+                        tidakPresensiSpots: const [
+                          FlSpot(0, 2),
+                          FlSpot(1, 2),
+                          FlSpot(2, 2),
+                          FlSpot(3, 2),
+                          FlSpot(4, 2),
+                        ],
+                        bottomTitles: const ['22', '23', '24', '25', '26'],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        LegendItem(color: Colors.blue, text: "Tepat Waktu"),
+                        SizedBox(width: 10),
+                        LegendItem(color: Colors.red, text: "Tidak Presensi"),
+                        SizedBox(width: 10),
+                        LegendItem(color: Colors.yellow, text: "Terlambat"),
+                      ],
+                    ),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 16), // Jarak antara grafik dan legenda
-            // Legend/Keterangan Garis
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                LegendItem(color: Colors.blue, text: "Tepat Waktu"),
-                SizedBox(width: 10),
-                LegendItem(color: Colors.red, text: "Tidak Presensi"),
-                SizedBox(width: 10),
-                LegendItem(color: Colors.yellow, text: "Terlambat"),
-              ],
-            ),
+              const SizedBox(height: 16),
 
-            // Pie Chart Placeholder
-            const SizedBox(height: 16),
-            Expanded(
-              child: Container(
+              // Pie Chart Section
+              Container(
                 padding: const EdgeInsets.all(8.0),
                 color: Colors.white,
-                child: PieChartWidget(),
+                child: SizedBox(
+                  height: 250,
+                  child: PieChartWidget(),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -163,6 +168,7 @@ class _AbsensiPageState extends State<AbsensiPage> {
     );
   }
 }
+
 
 class AttendanceLineChart extends StatelessWidget {
   final List<FlSpot> tepatWaktuSpots;

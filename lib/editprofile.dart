@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class EditProfilePage extends StatefulWidget {
   @override
@@ -9,17 +11,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final _formKey = GlobalKey<FormState>();
 
   // Controllers for the text fields
-  final TextEditingController _usernameController = TextEditingController(text: "eripras11");
-  final TextEditingController _tempatLahirController = TextEditingController(text: "Gresik");
-  final TextEditingController _tanggalLahirController = TextEditingController(text: "01/10/2000");
-  final TextEditingController _alamatController = TextEditingController(text: "Jalan dimana mana hatiku senank");
-  final TextEditingController _nomorRTController = TextEditingController(text: "001");
-  final TextEditingController _nikController = TextEditingController(text: "3525131290123232");
-  final TextEditingController _nomorHpController = TextEditingController(text: "081220090901");
-  final TextEditingController _pendidikanTerakhirController = TextEditingController(text: "SMA");
-  final TextEditingController _nomorBPJSController = TextEditingController(text: "00018920303");
-  final TextEditingController _nomorBPJSTKController = TextEditingController(text: "230012234");
-  final TextEditingController _nomorPajakController = TextEditingController(text: "626383949572849234");
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _tempatLahirController = TextEditingController();
+  final TextEditingController _tanggalLahirController = TextEditingController();
+  final TextEditingController _alamatController = TextEditingController();
+  final TextEditingController _nikController = TextEditingController();
+  final TextEditingController _nomorHpController = TextEditingController();
+  final TextEditingController _pendidikanTerakhirController = TextEditingController();
+  final TextEditingController _nomorBPJSController = TextEditingController();
+  final TextEditingController _nomorBPJSTKController = TextEditingController();
+  final TextEditingController _nomorPajakController = TextEditingController();
 
   // Dropdown selections
   String _selectedGender = 'Laki - laki';
@@ -31,10 +32,56 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final List<String> _statusKawinOptions = ['Kawin', 'Belum Kawin'];
   final List<String> _agamaOptions = ['Islam', 'Kristen', 'Hindu', 'Buddha', 'Lainnya'];
 
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserData();
+  }
+
+  Future<void> _fetchUserData() async {
+    try {
+      // Ambil user ID dari FirebaseAuth
+      User? currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        // Ambil data dari Firestore berdasarkan UID
+        DocumentSnapshot userProfile = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser.uid)
+            .get();
+
+        if (userProfile.exists) {
+          Map<String, dynamic> data = userProfile.data() as Map<String, dynamic>;
+
+          setState(() {
+            _emailController.text = data['email'] ?? '';
+            _tempatLahirController.text = data['placeOfBirth'] ?? '';
+            _tanggalLahirController.text = data['dateOfBirth'] ?? '';
+            _alamatController.text = data['address'] ?? '';
+            _nikController.text = data['nik'] ?? '';
+            _nomorHpController.text = data['phoneNumber'] ?? '';
+            _pendidikanTerakhirController.text = data['lastEducation'] ?? '';
+            _nomorBPJSController.text = data['bpjsNumber'] ?? '';
+            _nomorBPJSTKController.text = data['bpjsTkNumber'] ?? '';
+            _nomorPajakController.text = data['taxNumber'] ?? '';
+            _selectedGender = data['gender'] ?? 'Laki - laki';
+            _selectedStatusKawin = data['statusKawin'] ?? 'Kawin';
+            _selectedAgama = data['religion'] ?? 'Islam';
+          });
+        } else {
+          print('User profile does not exist');
+        }
+      } else {
+        print('No user is currently logged in');
+      }
+    } catch (e) {
+      print('Error fetching user profile: $e');
+    }
+  }
+
   Future<void> _selectDate(BuildContext context) async {
     DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime(2000, 1, 10),
+      initialDate: DateTime.now(),
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
     );
@@ -59,8 +106,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
           child: ListView(
             children: [
               TextFormField(
-                controller: _usernameController,
-                decoration: InputDecoration(labelText: 'Username'),
+                controller: _emailController,
+                decoration: InputDecoration(labelText: 'Email'),
               ),
               TextFormField(
                 controller: _tempatLahirController,
@@ -95,10 +142,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
               TextFormField(
                 controller: _alamatController,
                 decoration: InputDecoration(labelText: 'Alamat'),
-              ),
-              TextFormField(
-                controller: _nomorRTController,
-                decoration: InputDecoration(labelText: 'Nomor RT'),
               ),
               TextFormField(
                 controller: _nikController,

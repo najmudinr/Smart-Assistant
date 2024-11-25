@@ -9,6 +9,13 @@ import 'package:smartassistant/login.dart';
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
+@pragma('vm:entry-point') // Diperlukan untuk memastikan handler dapat diakses oleh VM
+void notificationTapBackground(NotificationResponse notificationResponse) {
+  print('Notifikasi diterima di background: ${notificationResponse.payload}');
+  // Tambahkan logika tambahan jika diperlukan
+}
+
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -24,14 +31,23 @@ void main() async {
   const InitializationSettings initializationSettings =
       InitializationSettings(android: initializationSettingsAndroid);
 
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  await flutterLocalNotificationsPlugin.initialize(
+    initializationSettings,
+    onDidReceiveNotificationResponse: (NotificationResponse response) async {
+      print("Notifikasi diterima di foreground: ${response.payload}");
+    },
+    onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
+  );
 
   // Mengecek status login
   final user = FirebaseAuth.instance.currentUser;
   final isLoggedIn = user != null;
 
+  await FirebaseAuth.instance.signOut();
+
   runApp(MyApp(isLoggedIn: isLoggedIn));
 }
+
 
 class MyApp extends StatelessWidget {
   final bool isLoggedIn;

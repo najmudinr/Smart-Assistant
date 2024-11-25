@@ -23,18 +23,19 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      // ignore: unused_local_variable
+
       UserCredential userCredential = await _auth.signInWithEmailAndPassword(
         email: usernameController.text.trim(),
         password: passwordController.text.trim(),
       );
 
-      // Langsung arahkan ke HomePage setelah login berhasil
+      print('User logged in: ${userCredential.user?.email}');
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => HomePage()),
       );
     } catch (e) {
+      print('Error during login: $e');
       setState(() {
         _errorMessage = 'Login failed: ${e.toString()}';
       });
