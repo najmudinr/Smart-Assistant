@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:smartassistant/detailiqc.dart';
 import 'package:smartassistant/tambahiqc.dart';
 
 class IQCPage extends StatelessWidget {
@@ -72,6 +73,12 @@ class IQCPage extends StatelessWidget {
                                 icon:
                                     Icon(Icons.more_vert, color: Colors.orange),
                                 onPressed: () {
+                                  Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (context) => DetailIQCPage(
+                                                documentId: item.id,
+                                              )));
                                   // Tambahkan aksi untuk setiap data di sini
                                 },
                               ),

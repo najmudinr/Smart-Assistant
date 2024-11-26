@@ -30,27 +30,21 @@ class DetailDiskusiRapatPage extends StatelessWidget {
         ),
       ),
       body: StreamBuilder<DocumentSnapshot>(
-        stream:
-            FirebaseFirestore.instance.collection('rapat').doc(rapatId).snapshots(),
+        stream: FirebaseFirestore.instance.collection('rapat').doc(rapatId).snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (!snapshot.hasData ||
-              snapshot.data == null ||
-              !snapshot.data!.exists) {
+          if (!snapshot.hasData || snapshot.data == null || !snapshot.data!.exists) {
             return const Center(child: Text('Data rapat tidak ditemukan.'));
           }
 
           final rapatData = snapshot.data!.data() as Map<String, dynamic>;
           final teamLeaderId = rapatData['teamLeaderId'] ?? '';
-          final participants =
-              rapatData['participants'] as List<dynamic>? ?? [];
-          final teamLeaderNotes =
-              rapatData['teamLeaderNotes'] as List<dynamic>? ?? [];
-          final participantNotes =
-              rapatData['participantNotes'] as List<dynamic>? ?? [];
+          final participants = rapatData['participants'] as List<dynamic>? ?? [];
+          final teamLeaderNotes = rapatData['teamLeaderNotes'] as List<dynamic>? ?? [];
+          final participantNotes = rapatData['participantNotes'] as List<dynamic>? ?? [];
 
           return Padding(
             padding: const EdgeInsets.all(16.0),
@@ -58,20 +52,15 @@ class DetailDiskusiRapatPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Tema diskusi
                   Text(
                     'Tema diskusi: ${rapatData['topic'] ?? 'Tidak tersedia'}',
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                      'Tanggal Pelaksanaan: ${rapatData['date'] ?? 'Tidak tersedia'}'),
+                  Text('Tanggal Pelaksanaan: ${rapatData['date'] ?? 'Tidak tersedia'}'),
                   const SizedBox(height: 16),
 
-                  // Team Leader Info
                   _buildTeamLeaderInfo(context, teamLeaderId),
-
                   const SizedBox(height: 16),
 
                   const Text(
@@ -84,53 +73,138 @@ class DetailDiskusiRapatPage extends StatelessWidget {
                       : _buildParticipants(participants),
 
                   const SizedBox(height: 16),
-                  // Penyampaian Team Leader
                   const Text(
                     'Penyampaian Team Leader:',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green),
                   ),
                   const SizedBox(height: 8),
-
-                  // Tambahkan Arahan Baru Jika Team Leader
                   if (currentUserId == teamLeaderId) ...[
                     _buildAddNoteSection(context, rapatId),
                     const SizedBox(height: 16),
                   ],
-
-                  // Daftar Arahan
                   teamLeaderNotes.isEmpty
                       ? const Text('Belum ada arahan yang ditambahkan.')
-                      : _buildTeamLeaderNotes(context, rapatId, teamLeaderNotes,
-                          currentUserId, teamLeaderId),
+                      : _buildTeamLeaderNotes(context, rapatId, teamLeaderNotes, currentUserId, teamLeaderId),
 
                   const SizedBox(height: 16),
-
-                  // Penyampaian Peserta Rapat
                   const Text(
                     'Penyampaian Peserta Rapat:',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
                   ),
                   const SizedBox(height: 8),
-
-                  // Form untuk peserta menambahkan penyampaian
                   _buildAddParticipantNoteSection(context, rapatId),
-
-                  // Daftar penyampaian peserta
                   participantNotes.isEmpty
                       ? const Text('Belum ada penyampaian peserta.')
-                      : _buildParticipantNotes(participantNotes),
+                      : _buildParticipantNotes(context, participantNotes, currentUserId, teamLeaderId),
                 ],
               ),
             ),
           );
         },
       ),
+    );
+  }
+
+  Widget _buildParticipantNotes(
+    BuildContext context,
+    List<dynamic> participantNotes,
+    String currentUserId,
+    String teamLeaderId,
+  ) {
+    return Column(
+      children: participantNotes.map((entry) {
+        final String userId = entry['userId'] ?? 'Unknown';
+        final String note = entry['note'] ?? 'Tidak ada penyampaian.';
+        final String? leaderResponse = entry['leaderResponse'];
+        final TextEditingController responseController = TextEditingController();
+
+        return FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
+          builder: (context, userSnapshot) {
+            if (userSnapshot.connectionState == ConnectionState.waiting) {
+              return const CircularProgressIndicator();
+            }
+            final userName = userSnapshot.data?['name'] ?? 'Tidak diketahui';
+
+            return Card(
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ListTile(
+                    title: Text(note),
+                    subtitle: Text('Peserta: $userName'),
+                  ),
+                  if (leaderResponse != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Text(
+                        'Tanggapan Leader: $leaderResponse',
+                        style: const TextStyle(color: Colors.green, fontStyle: FontStyle.italic),
+                      ),
+                    ),
+                  ],
+                  if (currentUserId == teamLeaderId) ...[
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextField(
+                            controller: responseController,
+                            decoration: const InputDecoration(
+                              labelText: 'Tambah tanggapan untuk peserta...',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ElevatedButton(
+                            onPressed: () async {
+                              final response = responseController.text.trim();
+                              if (response.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Tanggapan tidak boleh kosong.')),
+                                );
+                                return;
+                              }
+                              try {
+                                // Update tanggapan di Firestore
+                                await FirebaseFirestore.instance
+                                    .collection('rapat')
+                                    .doc(rapatId)
+                                    .update({
+                                  'participantNotes': FieldValue.arrayRemove([entry]),
+                                });
+                                await FirebaseFirestore.instance
+                                    .collection('rapat')
+                                    .doc(rapatId)
+                                    .update({
+                                  'participantNotes': FieldValue.arrayUnion([
+                                    {...entry, 'leaderResponse': response}
+                                  ]),
+                                });
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Tanggapan berhasil ditambahkan.')),
+                                );
+                                responseController.clear();
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Gagal menambahkan tanggapan: $e')),
+                                );
+                              }
+                            },
+                            child: const Text('Tambah Tanggapan'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        );
+      }).toList(),
     );
   }
 
@@ -189,118 +263,6 @@ class DetailDiskusiRapatPage extends StatelessWidget {
       ],
     );
   }
-
-  Widget _buildParticipantNotes(List<dynamic> participantNotes) {
-    final currentUser = FirebaseAuth.instance.currentUser;
-
-    return Column(
-      children: participantNotes.map((entry) {
-        final String userId = entry['userId'] ?? 'Unknown';
-        final String note = entry['note'] ?? 'Tidak ada penyampaian.';
-        final TextEditingController noteController =
-            TextEditingController(text: note);
-
-        return FutureBuilder<DocumentSnapshot>(
-          future:
-              FirebaseFirestore.instance.collection('users').doc(userId).get(),
-          builder: (context, userSnapshot) {
-            if (userSnapshot.connectionState == ConnectionState.waiting) {
-              return const CircularProgressIndicator();
-            }
-            final userName = userSnapshot.data?['name'] ?? 'Tidak diketahui';
-
-            return Card(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              child: ListTile(
-                title: TextField(
-                  controller: noteController,
-                  decoration: const InputDecoration(
-                    hintText: 'Edit penyampaian...',
-                    border: InputBorder.none,
-                  ),
-                  maxLines: null,
-                ),
-                subtitle: Text(userName),
-                trailing: currentUser?.uid == userId
-                    ? Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(icon: const Icon(Icons.save, color: Colors.green),
-                          onPressed: () async {
-                            final updatedNote = noteController.text.trim();
-                            if (updatedNote.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Penyampaian tidak boleh kosong.')),
-                              );
-                              return;
-                            }
-                            try {
-                              // Update penyampaian di Firestore
-                              await FirebaseFirestore.instance
-                                  .collection('rapat')
-                                  .doc(rapatId)
-                                  .update({
-                                'participantNotes': FieldValue.arrayRemove(
-                                    [entry]), // Hapus penyampaian lama
-                              });
-                              await FirebaseFirestore.instance
-                                  .collection('rapat')
-                                  .doc(rapatId)
-                                  .update({
-                                'participantNotes': FieldValue.arrayUnion([
-                                  {'userId': userId, 'note': updatedNote}
-                                ]),
-                              });
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content:
-                                        Text('Penyampaian berhasil disimpan.')),
-                              );
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                    content: Text(
-                                        'Gagal menyimpan penyampaian: $e')),
-                              );
-                            }
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () async {
-                            try {
-                              // Hapus penyampaian di Firestore
-                              await FirebaseFirestore.instance
-                                  .collection('rapat')
-                                  .doc(rapatId)
-                                  .update({
-                                'participantNotes': FieldValue.arrayRemove(
-                                    [entry]),
-                              });
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content:
-                                        Text('Penyampaian berhasil dihapus.')),
-                              );
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                    content: Text(
-                                        'Gagal menghapus penyampaian: $e')),
-                              );
-                            }
-                          },
-                        ),
-                      ],
-                    )
-                  : null,
-            ),
-          );
-        },
-      );
-    }).toList(),
-  );
-}
 
   Widget _buildTeamLeaderInfo(BuildContext context, String teamLeaderId) {
     return FutureBuilder<DocumentSnapshot>(
