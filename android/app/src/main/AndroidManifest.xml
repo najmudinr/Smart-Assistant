@@ -1,5 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package = "com.smartassistant">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+<!-- Suggested code may be subject to a license. Learn more: ~LicenseLog:2464070844. -->
+<!-- Suggested code may be subject to a license. Learn more: ~LicenseLog:1389178420. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <application
         android:label="Smart Assistant"
         android:name="${applicationName}"
@@ -43,11 +50,5 @@
             <data android:mimeType="text/plain"/>
         </intent>
     </queries>
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-<!-- Suggested code may be subject to a license. Learn more: ~LicenseLog:2464070844. -->
-<!-- Suggested code may be subject to a license. Learn more: ~LicenseLog:1389178420. -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 ">
 </manifest>

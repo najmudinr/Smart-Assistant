@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:smartassistant/tambahiqc.dart';
 
 class IQCPage extends StatelessWidget {
@@ -10,126 +11,93 @@ class IQCPage extends StatelessWidget {
           'IQC',
           style: TextStyle(color: Colors.black),
         ),
+        backgroundColor: Colors.amber,
       ),
       backgroundColor: Colors.white,
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            SizedBox(height: 20),
-            // Header
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Berikut ini adalah data Quality Control di Area III',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 20),
-            // Tabel Data
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                columns: [
-                  DataColumn(label: Text('No')),
-                  DataColumn(label: Text('Tanggal')),
-                  DataColumn(label: Text('Shift')),
-                  DataColumn(label: Text('Nama Produk')),
-                  DataColumn(label: Text('Jumlah Produk')),
-                  DataColumn(label: Text('Asal Produk')),
-                  DataColumn(label: Text('Actions')),
-                ],
-                rows: List<DataRow>.generate(
-                  10, // Ganti dengan jumlah data yang diinginkan
-                  (index) => DataRow(
-                    cells: [
-                      DataCell(Text('${index + 1}')),
-                      DataCell(Text('1/10/2024')),
-                      DataCell(Text('Shift 1')),
-                      DataCell(Text('PETROGANIK PREMIUM 40 KG')),
-                      DataCell(Text('40 Ton')),
-                      DataCell(Text('CV. ABCD')),
-                      DataCell(
-                        IconButton(
-                          icon: Icon(Icons.more_vert, color: Colors.orange),
-                          onPressed: () {
-                            // Tambahkan aksi disini
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            SizedBox(height: 10),
-            // Informasi pagination
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: Align(
-                alignment: Alignment.centerLeft,
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('iqc_data').snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(child: Text('Terjadi kesalahan: ${snapshot.error}'));
+          }
+
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return Center(child: Text('Tidak ada data tersedia.'));
+          }
+
+          // Mengambil data dari Firestore
+          final data = snapshot.data!.docs;
+
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
                 child: Text(
-                  'Showing 1 to 10 of 121 entries',
-                  style: TextStyle(fontSize: 14),
+                  'Berikut ini adalah data Quality Control di Area III',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
-            ),
-            SizedBox(height: 10),
-            // Pagination control
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconButton(
-                  onPressed: () {},
-                  icon: Icon(Icons.chevron_left),
-                ),
-                Row(
-                  children: List.generate(
-                    5, // Jumlah halaman dalam pagination
-                    (index) => Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                      child: Text(
-                        '${index + 1}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: index == 0 ? Colors.black : Colors.grey,
-                        ),
-                      ),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columnSpacing: 20.0,
+                    columns: [
+                      DataColumn(label: Text('No')),
+                      DataColumn(label: Text('Tanggal')),
+                      DataColumn(label: Text('Shift')),
+                      DataColumn(label: Text('Nama Produk')),
+                      DataColumn(label: Text('Jumlah Produk (Ton)')),
+                      DataColumn(label: Text('Asal Produk')),
+                      DataColumn(label: Text('Actions')),
+                    ],
+                    rows: List<DataRow>.generate(
+                      data.length,
+                      (index) {
+                        final item = data[index];
+                        return DataRow(
+                          cells: [
+                            DataCell(Text('${index + 1}')),
+                            DataCell(Text(item['tanggal'] ?? '')),
+                            DataCell(Text(item['shift'] ?? '')),
+                            DataCell(Text(item['nama_produk'] ?? '')),
+                            DataCell(Text(item['jumlah_produk'] ?? '')),
+                            DataCell(Text(item['asal_produk'] ?? '')),
+                            DataCell(
+                              IconButton(
+                                icon:
+                                    Icon(Icons.more_vert, color: Colors.orange),
+                                onPressed: () {
+                                  // Tambahkan aksi untuk setiap data di sini
+                                },
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ),
-                IconButton(
-                  onPressed: () {},
-                  icon: Icon(Icons.chevron_right),
-                ),
-              ],
-            ),
-            SizedBox(height: 20),
-          ],
-        ),
+              ),
+            ],
+          );
+        },
       ),
-      // Tombol Tambah Laporan
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => TambahIQCPage()),
           );
-          // Aksi untuk menambah laporan
         },
         label: Text('Tambah Laporan'),
         icon: Icon(Icons.add),
         backgroundColor: Colors.amber,
       ),
-      // Bottom Navigation Bar
     );
   }
 }

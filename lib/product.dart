@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ProductPage extends StatefulWidget {
   @override
@@ -22,7 +23,6 @@ class _ProductPageState extends State<ProductPage> {
     _getUserLocation();
   }
 
-  // Fetch products from Firestore
   Future<void> _fetchProducts() async {
     try {
       QuerySnapshot snapshot = await _firestore.collection('products').get();
@@ -39,7 +39,6 @@ class _ProductPageState extends State<ProductPage> {
     }
   }
 
-  // Fetch warehouses for the selected product
   Future<void> _fetchProductDetails(String productId) async {
     try {
       DocumentSnapshot productSnapshot =
@@ -75,7 +74,6 @@ class _ProductPageState extends State<ProductPage> {
     }
   }
 
-  // Get user location
   Future<void> _getUserLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
@@ -107,13 +105,25 @@ class _ProductPageState extends State<ProductPage> {
     });
   }
 
-  // Calculate distance between user and warehouse
   double _calculateDistance(
       double lat1, double lon1, double lat2, double lon2) {
     if (lat1 == 0.0 || lon1 == 0.0 || lat2 == 0.0 || lon2 == 0.0) {
-      return double.infinity; // Invalid data
+      return double.infinity;
     }
-    return Geolocator.distanceBetween(lat1, lon1, lat2, lon2) / 1000; // km
+    return Geolocator.distanceBetween(lat1, lon1, lat2, lon2) / 1000;
+  }
+
+  Future<void> _openGoogleMaps(double destLatitude, double destLongitude) async {
+    final String googleMapsUrl =
+        "https://www.google.com/maps/dir/?api=1&origin=${_userLocation!.latitude},${_userLocation!.longitude}&destination=$destLatitude,$destLongitude";
+
+    // ignore: deprecated_member_use
+    if (await canLaunch(googleMapsUrl)) {
+      // ignore: deprecated_member_use
+      await launch(googleMapsUrl);
+    } else {
+      throw "Could not launch $googleMapsUrl";
+    }
   }
 
   @override
@@ -125,7 +135,6 @@ class _ProductPageState extends State<ProductPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Dropdown
               Row(
                 children: [
                   Expanded(
@@ -150,12 +159,10 @@ class _ProductPageState extends State<ProductPage> {
                 ],
               ),
               SizedBox(height: 16),
-
               if (_selectedProduct != null) ...[
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Container dengan gambar dari URL Firestore
                     Container(
                       width: 100,
                       height: 100,
@@ -171,7 +178,6 @@ class _ProductPageState extends State<ProductPage> {
                       ),
                     ),
                     SizedBox(width: 16),
-                    // Deskripsi produk
                     Expanded(
                       child: Text(
                         _selectedProduct?['description'] ??
@@ -183,14 +189,7 @@ class _ProductPageState extends State<ProductPage> {
                 ),
                 SizedBox(height: 16),
               ],
-
-              // Warehouse Section
               if (_warehouses.isNotEmpty && _userLocation != null) ...[
-                Text(
-                  "Lokasi Produk di Gudang:",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                SizedBox(height: 16),
                 ..._warehouses.map((warehouse) {
                   double distance = _calculateDistance(
                     _userLocation!.latitude,
@@ -204,17 +203,17 @@ class _ProductPageState extends State<ProductPage> {
                       title:
                           Text(warehouse['name'] ?? "Gudang Tidak Diketahui"),
                       subtitle: Text(
-                        "Stok: ${warehouse['stock'] ?? "Tidak tersedia"}",
-                      ),
+                          "Stok: ${warehouse['stock'] ?? "Tidak tersedia"}"),
                       trailing: Text("${distance.toStringAsFixed(1)} km"),
+                      onTap: () {
+                        _openGoogleMaps(
+                          warehouse['latitude'] ?? 0.0,
+                          warehouse['longitude'] ?? 0.0,
+                        );
+                      },
                     ),
                   );
                 }),
-              ] else if (_userLocation == null) ...[
-                Text(
-                  "Sedang mengambil lokasi pengguna...",
-                  style: TextStyle(color: Colors.red),
-                )
               ],
             ],
           ),

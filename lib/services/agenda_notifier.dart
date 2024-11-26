@@ -10,10 +10,10 @@ class AgendaNotifier {
     _timer?.cancel(); // Batalkan timer jika sudah ada
     _timer = Timer.periodic(Duration(minutes: 1), (timer) {
       final now = DateTime.now();
-      print("Memeriksa agenda pada: ${DateFormat('HH:mm:ss').format(now)}");
+      // print("Memeriksa agenda pada: ${DateFormat('HH:mm:ss').format(now)}");
       for (final agenda in agendas) {
         final timeDifference = agenda.waktu.difference(now).inMinutes;
-        print("Agenda: ${agenda.agenda}, Sisa waktu: $timeDifference menit");
+        // print("Agenda: ${agenda.agenda}, Sisa waktu: $timeDifference menit");
 
         if (timeDifference > 0 && timeDifference <= 5) {
           // Alert sebelum 5 menit
