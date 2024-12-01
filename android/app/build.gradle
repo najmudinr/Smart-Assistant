@@ -38,7 +38,7 @@ android {
             storeFile file('../upload-keystore.jks')
             storePassword "petrokimia"
             keyAlias "upload"
-            keyPassword "petrokimia1"
+            keyPassword "petrokimia"
         }
     }
 

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:smartassistant/asktoexpert.dart';
 import 'package:smartassistant/dashboardmemo.dart';
+import 'package:smartassistant/editchart.dart';
 import 'package:smartassistant/konsultasi.dart';
 import 'package:smartassistant/models/agenda.dart';
 import 'package:smartassistant/pengajuan.dart';
@@ -17,36 +18,63 @@ import 'package:smartassistant/widgets/agenda_card.dart';
 
 class DashboardPage extends StatefulWidget {
   final String userRole;
+
   const DashboardPage({required this.userRole});
+
   @override
   _DashboardPageState createState() => _DashboardPageState();
 }
 
 class _DashboardPageState extends State<DashboardPage> {
   String? userName;
-   final AgendaNotifier _agendaNotifier = AgendaNotifier();
+  String? _userRole;
+  final AgendaNotifier _agendaNotifier = AgendaNotifier();
 
   @override
   void initState() {
     super.initState();
     _loadUserName();
-    _fetchUserNameFromFirestore(); // Tambahkan ini untuk memanggil Firestore
+    _fetchUserDetailsFromFirestore();
+    _fetchUserNameFromFirestore();
     _loadAgendas();
   }
 
   Future<void> _loadUserName() async {
-    // Ambil nama dari SharedPreferences jika tersedia
     final prefs = await SharedPreferences.getInstance();
     String? cachedName = prefs.getString('userName');
-
     setState(() {
       userName = cachedName;
     });
   }
 
+  Future<void> _fetchUserDetailsFromFirestore() async {
+    try {
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        if (userDoc.exists) {
+          setState(() {
+            userName = userDoc['name']; // Ambil nama pengguna
+            _userRole = userDoc['roles']; // Ambil roles dari Firestore
+          });
+
+          // Simpan nama dan roles di SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          prefs.setString('userName', userName!);
+          prefs.setString('userRole', _userRole!);
+        }
+      }
+    } catch (e) {
+      print("Failed to fetch user details: $e");
+    }
+  }
+
   Future<void> _fetchUserNameFromFirestore() async {
     try {
-      print("Fetching user name...");
       User? user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         DocumentSnapshot userDoc = await FirebaseFirestore.instance
@@ -61,17 +89,15 @@ class _DashboardPageState extends State<DashboardPage> {
           // Simpan nama di SharedPreferences
           final prefs = await SharedPreferences.getInstance();
           prefs.setString('userName', userName!);
-          await prefs.clear();
         }
       }
     } catch (e, stackTrace) {
       print("Failed to fetch user name: $e");
-      print(stackTrace); // Print the stack trace to help with debugging
+      print(stackTrace);
     }
   }
 
   void _loadAgendas() {
-    // Ambil agenda dari Firestore dan kirim ke AgendaNotifier
     FirebaseFirestore.instance
         .collection('agendas')
         .snapshots()
@@ -79,14 +105,13 @@ class _DashboardPageState extends State<DashboardPage> {
       final agendas = snapshot.docs.map((doc) {
         return Agenda.fromFirestore(doc);
       }).toList();
-
-      _agendaNotifier.startMonitoring(agendas); // Monitor agenda dari Firestore
+      _agendaNotifier.startMonitoring(agendas);
     });
   }
 
-    @override
+  @override
   void dispose() {
-    _agendaNotifier.stopMonitoring(); // Hentikan monitoring saat halaman ditutup
+    _agendaNotifier.stopMonitoring();
     super.dispose();
   }
 
@@ -118,7 +143,8 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
 
                 SizedBox(height: screenHeight * 0.02),
-                
+
+                // Widget Dashboard Ikon Navigasi
                 // Widget Dashboard Ikon Navigasi tanpa Expanded
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
@@ -151,12 +177,11 @@ class _DashboardPageState extends State<DashboardPage> {
 
                 SizedBox(height: 10),
 
-                // Widgets yang sudah ada
+                // Widgets lainnya
                 AgendaCard(
                   screenWidth: screenWidth,
                   userRole: widget.userRole,
                 ),
-                PetugasCard(screenWidth: screenWidth),
                 GudangInternalCard(screenWidth: screenWidth),
                 GudangExternalCard(screenWidth: screenWidth),
               ],
@@ -164,6 +189,19 @@ class _DashboardPageState extends State<DashboardPage> {
           );
         },
       ),
+      floatingActionButton:
+          widget.userRole == 'Admin Bagian' || widget.userRole == 'Admin Seksi'
+              ? FloatingActionButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => AdminInputPage()),
+                    );
+                  },
+                  tooltip: 'Input Data Gudang',
+                  child: Icon(Icons.edit),
+                )
+              : null,
     );
   }
 
@@ -287,116 +325,113 @@ class GudangInternalCard extends StatelessWidget {
             SizedBox(height: screenWidth * 0.02),
             SizedBox(
               height: screenWidth * 0.8,
-              child: BarChart(
-                BarChartData(
-                  alignment: BarChartAlignment.spaceAround,
-                  maxY: 80000,
-                  barTouchData: BarTouchData(enabled: false),
-                  titlesData: FlTitlesData(
-                    show: true,
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (double value, TitleMeta meta) {
-                          const style = TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          );
-                          switch (value.toInt()) {
-                            case 0:
-                              return Text('GBB A', style: style);
-                            case 1:
-                              return Text('GBB B', style: style);
-                            case 2:
-                              return Text('GBB C', style: style);
-                            case 3:
-                              return Text('GMG I', style: style);
-                            case 4:
-                              return Text('GMG II', style: style);
-                            default:
-                              return Text('', style: style);
-                          }
-                        },
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('gudang_internal')
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return Center(child: CircularProgressIndicator());
+                  }
+                  final docs = snapshot.data!.docs;
+                  final barGroups = docs.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final data = entry.value.data() as Map<String, dynamic>;
+
+                    return BarChartGroupData(
+                      x: index,
+                      barRods: [
+                        BarChartRodData(
+                          toY: data['total_capacity']?.toDouble() ?? 0,
+                          color: Colors.blue,
+                          width: 12,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        BarChartRodData(
+                          toY: data['used_capacity']?.toDouble() ?? 0,
+                          color: Colors.red,
+                          width: 12,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        BarChartRodData(
+                          toY: data['free_capacity']?.toDouble() ?? 0,
+                          color: Colors.yellow,
+                          width: 12,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ],
+                    );
+                  }).toList();
+
+                  return BarChart(
+                    BarChartData(
+                      alignment: BarChartAlignment.spaceAround,
+                      maxY: 80000,
+                      titlesData: FlTitlesData(
+                        show: true,
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            getTitlesWidget: (double value, TitleMeta meta) {
+                              final index = value.toInt();
+                              if (index >= 0 && index < docs.length) {
+                                return Text(
+                                  docs[index]['name'] ?? '',
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                );
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
+                        ),
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: false,
+                          ),
+                        ),
                       ),
-                    ),
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (double value, TitleMeta meta) {
-                          return Text('${value.toInt()}',
-                              style: const TextStyle(
-                                color: Colors.black,
+                      borderData: FlBorderData(
+                        show: true,
+                        border: Border.all(color: Colors.grey, width: 1),
+                      ),
+                      barGroups: barGroups,
+                      barTouchData: BarTouchData(
+                        enabled: true,
+                        touchTooltipData: BarTouchTooltipData(
+                          tooltipMargin: 8,
+                          tooltipPadding: const EdgeInsets.all(8),
+                          getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                            String capacityType;
+                            if (rod.color == Colors.blue) {
+                              capacityType = "Total Capacity";
+                            } else if (rod.color == Colors.red) {
+                              capacityType = "Used Capacity";
+                            } else {
+                              capacityType = "Free Capacity";
+                            }
+                            return BarTooltipItem(
+                              '$capacityType\n${rod.toY.toStringAsFixed(0)}',
+                              const TextStyle(
+                                color: Colors.white,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ));
-                        },
-                        interval: 10000,
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ),
-                  ),
-                  borderData: FlBorderData(
-                    show: true,
-                    border: Border.all(color: Colors.grey, width: 1),
-                  ),
-                  barGroups: _createBarGroups(),
-                ),
+                  );
+                },
               ),
             ),
           ],
         ),
       ),
     );
-  }
-
-  List<BarChartGroupData> _createBarGroups() {
-    return [
-      BarChartGroupData(x: 0, barRods: [
-        BarChartRodData(toY: 50000, color: Colors.blue),
-        BarChartRodData(toY: 46900, color: Colors.red),
-        BarChartRodData(toY: 3100, color: Colors.yellow),
-      ], showingTooltipIndicators: [
-        0,
-        1,
-        2
-      ]),
-      BarChartGroupData(x: 1, barRods: [
-        BarChartRodData(toY: 50000, color: Colors.blue),
-        BarChartRodData(toY: 39575, color: Colors.red),
-        BarChartRodData(toY: 10424, color: Colors.yellow),
-      ], showingTooltipIndicators: [
-        0,
-        1,
-        2
-      ]),
-      BarChartGroupData(x: 2, barRods: [
-        BarChartRodData(toY: 41886, color: Colors.blue),
-        BarChartRodData(toY: 18831, color: Colors.red),
-        BarChartRodData(toY: 23054, color: Colors.yellow),
-      ], showingTooltipIndicators: [
-        0,
-        1,
-        2
-      ]),
-      BarChartGroupData(x: 3, barRods: [
-        BarChartRodData(toY: 53090, color: Colors.blue),
-        BarChartRodData(toY: 29710, color: Colors.red),
-        BarChartRodData(toY: 23379, color: Colors.yellow),
-      ], showingTooltipIndicators: [
-        0,
-        1,
-        2
-      ]),
-      BarChartGroupData(x: 4, barRods: [
-        BarChartRodData(toY: 78460, color: Colors.blue),
-        BarChartRodData(toY: 56593, color: Colors.red),
-        BarChartRodData(toY: 21866, color: Colors.yellow),
-      ], showingTooltipIndicators: [
-        0,
-        1,
-        2
-      ]),
-    ];
   }
 }
 
@@ -426,93 +461,108 @@ class GudangExternalCard extends StatelessWidget {
             SizedBox(height: screenWidth * 0.02),
             SizedBox(
               height: screenWidth * 0.8,
-              child: BarChart(
-                BarChartData(
-                  alignment: BarChartAlignment.spaceAround,
-                  maxY: 80000,
-                  barTouchData: BarTouchData(enabled: false),
-                  titlesData: FlTitlesData(
-                    show: true,
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (double value, TitleMeta meta) {
-                          const style = TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          );
-                          switch (value.toInt()) {
-                            case 0:
-                              return Text('KIG Beton', style: style);
-                            case 1:
-                              return Text('KIG FB', style: style);
-                            case 2:
-                              return Text('KIG Q', style: style);
-                            default:
-                              return Text('', style: style);
-                          }
-                        },
-                      ),
-                    ),
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (double value, TitleMeta meta) {
-                          return Text('${value.toInt()}',
-                              style: const TextStyle(
-                                color: Colors.black,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ));
-                        },
-                        interval: 10000,
-                      ),
-                    ),
-                  ),
-                  borderData: FlBorderData(
-                    show: true,
-                    border: Border.all(color: Colors.grey, width: 1),
-                  ),
-                  barGroups: _createExternalBarGroups(),
-                ),
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('gudang_external')
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return Center(child: CircularProgressIndicator());
+                  }
+                  final docs = snapshot.data!.docs;
+                  final barGroups = docs.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final data = entry.value.data() as Map<String, dynamic>;
+                    return BarChartGroupData(
+                      x: index,
+                      barRods: [
+                        BarChartRodData(
+                            toY: data['total_capacity'].toDouble(),
+                            width: 12,
+                            color: Colors.blue),
+                        BarChartRodData(
+                            toY: data['used_capacity'].toDouble(),
+                            width: 12,
+                            color: Colors.red),
+                        BarChartRodData(
+                            toY: data['free_capacity'].toDouble(),
+                            width: 12,
+                            color: Colors.yellow),
+                      ],
+                    );
+                  }).toList();
+
+                  return BarChart(
+                    BarChartData(
+                        alignment: BarChartAlignment.spaceAround,
+                        maxY: 80000,
+                        titlesData: FlTitlesData(
+                          show: true,
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              getTitlesWidget: (double value, TitleMeta meta) {
+                                const style = TextStyle(
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                );
+                                return Text(docs[value.toInt()]['name'],
+                                    style: style);
+                              },
+                            ),
+                          ),
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: false,
+                              getTitlesWidget: (double value, TitleMeta meta) {
+                                return Text('${value.toInt()}',
+                                    style: const TextStyle(
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ));
+                              },
+                              interval: 10000,
+                            ),
+                          ),
+                        ),
+                        borderData: FlBorderData(
+                          show: true,
+                          border: Border.all(color: Colors.grey, width: 1),
+                        ),
+                        barGroups: barGroups,
+                        barTouchData: BarTouchData(
+                            enabled: true,
+                            touchTooltipData: BarTouchTooltipData(
+                              tooltipMargin: 8,
+                              tooltipPadding: const EdgeInsets.all(8),
+                              getTooltipItem:
+                                  (group, groupIndex, rod, rodIndex) {
+                                String capacityType;
+                                if (rod.color == Colors.blue) {
+                                  capacityType = "Total Capacity";
+                                } else if (rod.color == Colors.red) {
+                                  capacityType = "Used Capacity";
+                                } else {
+                                  capacityType = "Free Capacity";
+                                }
+                                return BarTooltipItem(
+                                  '$capacityType\n${rod.toY.toStringAsFixed(0)}',
+                                  const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                );
+                              },
+                            ))),
+                  );
+                },
               ),
             ),
           ],
         ),
       ),
     );
-  }
-
-  List<BarChartGroupData> _createExternalBarGroups() {
-    return [
-      BarChartGroupData(x: 0, barRods: [
-        BarChartRodData(toY: 21000, color: Colors.blue),
-        BarChartRodData(toY: 10000, color: Colors.red),
-        BarChartRodData(toY: 11000, color: Colors.yellow),
-      ], showingTooltipIndicators: [
-        0,
-        1,
-        2
-      ]),
-      BarChartGroupData(x: 1, barRods: [
-        BarChartRodData(toY: 50000, color: Colors.blue),
-        BarChartRodData(toY: 20000, color: Colors.red),
-        BarChartRodData(toY: 10000, color: Colors.yellow),
-      ], showingTooltipIndicators: [
-        0,
-        1,
-        2
-      ]),
-      BarChartGroupData(x: 2, barRods: [
-        BarChartRodData(toY: 65000, color: Colors.blue),
-        BarChartRodData(toY: 30000, color: Colors.red),
-        BarChartRodData(toY: 5000, color: Colors.yellow),
-      ], showingTooltipIndicators: [
-        0,
-        1,
-        2
-      ]),
-    ];
   }
 }
