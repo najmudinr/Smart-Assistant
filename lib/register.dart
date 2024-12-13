@@ -138,7 +138,7 @@ class _RegisterPageState extends State<RegisterPage> {
           TextButton(
             onPressed: () {
               Navigator.pop(context); // Tutup dialog
-              Navigator.pushReplacement(
+              Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => LoginPage()),
               );
@@ -303,7 +303,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   // Link to Login
                   TextButton(
                     onPressed: () {
-                      Navigator.push(
+                      Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(builder: (context) => LoginPage()),
                       );

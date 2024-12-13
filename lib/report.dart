@@ -15,6 +15,7 @@ class _ReportAkhirShiftPageState extends State<ReportAkhirShiftPage> {
   String? userRole;
   List<Map<String, dynamic>> reports = [];
   bool isLoading = true;
+  String searchQuery = "";
 
   @override
   void initState() {
@@ -45,9 +46,8 @@ class _ReportAkhirShiftPageState extends State<ReportAkhirShiftPage> {
       final snapshot =
           await FirebaseFirestore.instance.collection('reports').get();
       setState(() {
-        reports = snapshot.docs
-            .map((doc) => {'id': doc.id, ...doc.data()})
-            .toList();
+        reports =
+            snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
         isLoading = false;
       });
     } catch (e) {
@@ -57,11 +57,25 @@ class _ReportAkhirShiftPageState extends State<ReportAkhirShiftPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Filter reports based on search query
+    final filteredReports = reports
+        .where((report) => searchQuery.isEmpty ||
+            report.values
+                .join(' ')
+                .toLowerCase()
+                .contains(searchQuery.toLowerCase()))
+        .toList();
+
+    final paginatedReports = filteredReports
+        .skip(_currentPage * _rowsPerPage)
+        .take(_rowsPerPage)
+        .toList();
+
     return Scaffold(
       body: isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : reports.isEmpty
-              ? Center(child: Text("Tidak ada data untuk ditampilkan."))
+              ? const Center(child: Text("Tidak ada data untuk ditampilkan."))
               : Column(
                   children: [
                     // Filter dan Search
@@ -69,7 +83,7 @@ class _ReportAkhirShiftPageState extends State<ReportAkhirShiftPage> {
                       padding: const EdgeInsets.all(16.0),
                       child: Row(
                         children: [
-                          Text("Show "),
+                          const Text("Show "),
                           DropdownButton<int>(
                             value: _rowsPerPage,
                             items: [10, 20, 30].map((int value) {
@@ -81,27 +95,24 @@ class _ReportAkhirShiftPageState extends State<ReportAkhirShiftPage> {
                             onChanged: (value) {
                               setState(() {
                                 _rowsPerPage = value!;
+                                _currentPage = 0; // Reset to first page
                               });
                             },
                           ),
-                          Text(" entries"),
-                          Spacer(),
-                          Text("Search: "),
+                          const Text(" entries"),
+                          const Spacer(),
+                          const Text("Search: "),
                           SizedBox(
-                            width: 150,
+                            width: 100,
                             child: TextField(
-                              decoration: InputDecoration(
+                              decoration: const InputDecoration(
                                 isDense: true,
                                 border: OutlineInputBorder(),
                               ),
                               onChanged: (query) {
                                 setState(() {
-                                  reports = reports
-                                      .where((report) => report.values
-                                          .join(' ')
-                                          .toLowerCase()
-                                          .contains(query.toLowerCase()))
-                                      .toList();
+                                  searchQuery = query;
+                                  _currentPage = 0; // Reset to first page
                                 });
                               },
                             ),
@@ -113,7 +124,7 @@ class _ReportAkhirShiftPageState extends State<ReportAkhirShiftPage> {
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: DataTable(
-                          columns: [
+                          columns: const [
                             DataColumn(label: Text('No')),
                             DataColumn(label: Text('Tanggal')),
                             DataColumn(label: Text('Shift')),
@@ -121,45 +132,41 @@ class _ReportAkhirShiftPageState extends State<ReportAkhirShiftPage> {
                             DataColumn(label: Text('Nama Gudang')),
                             DataColumn(label: Text('Actions')),
                           ],
-                          rows: reports
-                              .asMap()
-                              .entries
-                              .map((entry) {
-                                final index = entry.key;
-                                final report = entry.value;
-                                return DataRow(cells: [
-                                  DataCell(Text('${index + 1}')),
-                                  DataCell(Text(report['tanggal'] ?? '-')),
-                                  DataCell(Text(report['shift'] ?? '-')),
-                                  DataCell(Text(report['nama_karu'] ?? '-')),
-                                  DataCell(Text(report['nama_gudang'] ?? '-')),
-                                  DataCell(
-                                    PopupMenuButton<String>(
-                                      onSelected: (value) {
-                                        if (value == 'Detail') {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  DetailReportPage(),
-                                            ),
-                                          );
-                                        }
-                                      },
-                                      itemBuilder: (context) => [
-                                        PopupMenuItem(
-                                          value: 'Detail',
-                                          child: Text('Detail'),
+                          rows: paginatedReports.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final report = entry.value;
+
+                            return DataRow(cells: [
+                              DataCell(Text('${_currentPage * _rowsPerPage + index + 1}')),
+                              DataCell(Text(report['tanggal'] ?? '-')),
+                              DataCell(Text(report['shift'] ?? '-')),
+                              DataCell(Text(report['foreman'] ?? '-')),
+                              DataCell(Text(report['gudang'] ?? '-')),
+                              DataCell(
+                                PopupMenuButton<String>(
+                                  onSelected: (value) {
+                                    if (value == 'Detail') {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => DetailReportPage(
+                                            documentId: report['id'], // Gunakan ID dokumen yang valid
+                                          ),
                                         ),
-                                      ],
-                                      child: Icon(Icons.more_vert),
+                                      );
+                                    }
+                                  },
+                                  itemBuilder: (context) => const [
+                                    PopupMenuItem(
+                                      value: 'Detail',
+                                      child: Text('Detail'),
                                     ),
-                                  ),
-                                ]);
-                              })
-                              .toList()
-                              .take(_rowsPerPage)
-                              .toList(),
+                                  ],
+                                  child: const Icon(Icons.more_vert),
+                                ),
+                              ),
+                            ]);
+                          }).toList(),
                         ),
                       ),
                     ),
@@ -170,7 +177,7 @@ class _ReportAkhirShiftPageState extends State<ReportAkhirShiftPage> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           IconButton(
-                            icon: Icon(Icons.arrow_back),
+                            icon: const Icon(Icons.arrow_back),
                             onPressed: _currentPage > 0
                                 ? () {
                                     setState(() {
@@ -180,13 +187,12 @@ class _ReportAkhirShiftPageState extends State<ReportAkhirShiftPage> {
                                 : null,
                           ),
                           Text(
-                            "Page ${_currentPage + 1} of ${reports.isNotEmpty ? (_rowsPerPage / reports.length).ceil() : 1}",
+                            "Page ${_currentPage + 1} of ${(filteredReports.length / _rowsPerPage).ceil()}",
                           ),
                           IconButton(
-                            icon: Icon(Icons.arrow_forward),
-                            onPressed: reports.isNotEmpty &&
-                                    (_currentPage + 1) * _rowsPerPage <
-                                        reports.length
+                            icon: const Icon(Icons.arrow_forward),
+                            onPressed: (_currentPage + 1) * _rowsPerPage <
+                                    filteredReports.length
                                 ? () {
                                     setState(() {
                                       _currentPage++;
@@ -205,7 +211,7 @@ class _ReportAkhirShiftPageState extends State<ReportAkhirShiftPage> {
                 Navigator.push(context,
                     MaterialPageRoute(builder: (context) => AddReportPage()));
               },
-              child: Icon(Icons.add),
+              child: const Icon(Icons.add),
             )
           : null,
     );

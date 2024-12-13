@@ -23,7 +23,6 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-
       UserCredential userCredential = await _auth.signInWithEmailAndPassword(
         email: usernameController.text.trim(),
         password: passwordController.text.trim(),
@@ -158,7 +157,7 @@ class _LoginPageState extends State<LoginPage> {
 
                   TextButton(
                     onPressed: () {
-                      Navigator.push(
+                      Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(builder: (context) => RegisterPage()),
                       );

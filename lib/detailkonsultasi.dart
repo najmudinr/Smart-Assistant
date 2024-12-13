@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:smartassistant/services/inputfoto.dart';
 
 class DetailConsultationPage extends StatefulWidget {
   final String consultationId;
@@ -16,6 +18,29 @@ class DetailConsultationPage extends StatefulWidget {
 class _DetailConsultationPageState extends State<DetailConsultationPage> {
   final TextEditingController _messageController = TextEditingController();
   String? description;
+
+  Future<void> _selectImageFromCamera() async {
+    File? image = await FileUtils.pickImageFromCamera();
+    if (image != null) {
+      print('Gambar dari kamera: ${image.path}');
+    }
+  }
+
+// Mengambil gambar dari galeri
+  Future<void> _selectImageFromGallery() async {
+    File? image = await FileUtils.pickImageFromGallery();
+    if (image != null) {
+      print('Gambar dari galeri: ${image.path}');
+    }
+  }
+
+// Memilih file
+  Future<void> _selectFile() async {
+    File? file = await FileUtils.pickFile();
+    if (file != null) {
+      print('File yang dipilih: ${file.path}');
+    }
+  }
 
   @override
   void initState() {
@@ -250,15 +275,21 @@ class _DetailConsultationPageState extends State<DetailConsultationPage> {
                       children: [
                         IconButton(
                           icon: Icon(Icons.camera_alt),
-                          onPressed: () {},
+                          onPressed: () {
+                            _selectImageFromCamera();
+                          },
                         ),
                         IconButton(
                           icon: Icon(Icons.attach_file),
-                          onPressed: () {},
+                          onPressed: () {
+                            _selectFile();
+                          },
                         ),
                         IconButton(
                           icon: Icon(Icons.image),
-                          onPressed: () {},
+                          onPressed: () {
+                            _selectImageFromGallery();
+                          },
                         ),
                         Spacer(),
                         IconButton(

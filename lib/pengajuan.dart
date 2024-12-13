@@ -12,85 +12,86 @@ class PengajuanPage extends StatefulWidget {
 }
 
 class _PengajuanPageState extends State<PengajuanPage> {
-  String? _userRole;
+  // String? _userRole;
 
   @override
   void initState() {
     super.initState();
-    _getUserRole();
+    // _getUserRole();
   }
 
-  Future<void> _getUserRole() async {
-    User? currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser != null) {
-      DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUser.uid)
-          .get();
-      if (userSnapshot.exists) {
-        setState(() {
-          _userRole = userSnapshot['roles'];
-        });
-      }
-    }
-  }
+  // Future<void> _getUserRole() async {
+  //   User? currentUser = FirebaseAuth.instance.currentUser;
+  //   if (currentUser != null) {
+  //     DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
+  //         .collection('users')
+  //         .doc(currentUser.uid)
+  //         .get();
+  //     if (userSnapshot.exists) {
+  //       setState(() {
+  //         _userRole = userSnapshot['roles'];
+  //       });
+  //     }
+  //   }
+  // }
 
   Future<List<Map<String, dynamic>>> _fetchSubmissions() async {
-  try {
-    User? currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) return [];
+    try {
+      User? currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) return [];
 
-    // Query submissions
-    final receivedSnapshot = await FirebaseFirestore.instance
-        .collection('submissions')
-        .where('targetUserId', isEqualTo: currentUser.uid)
-        .get();
+      // Query submissions
+      final receivedSnapshot = await FirebaseFirestore.instance
+          .collection('submissions')
+          .where('targetUserId', isEqualTo: currentUser.uid)
+          .get();
 
-    final sentSnapshot = await FirebaseFirestore.instance
-        .collection('submissions')
-        .where('submittedBy', isEqualTo: currentUser.uid)
-        .get();
+      final sentSnapshot = await FirebaseFirestore.instance
+          .collection('submissions')
+          .where('submittedBy', isEqualTo: currentUser.uid)
+          .get();
 
-    final submissions = [
-      ...receivedSnapshot.docs.map((doc) => {
-            'id': doc.id,
-            ...doc.data(),
-          }),
-      ...sentSnapshot.docs.map((doc) => {
-            'id': doc.id,
-            ...doc.data(),
-          }),
-    ];
+      final submissions = [
+        ...receivedSnapshot.docs.map((doc) => {
+              'id': doc.id,
+              ...doc.data(),
+            }),
+        ...sentSnapshot.docs.map((doc) => {
+              'id': doc.id,
+              ...doc.data(),
+            }),
+      ];
 
-    // Get all unique user IDs for mapping names
-    final userIds = {
-      ...submissions.map((s) => s['submittedBy']),
-      ...submissions.map((s) => s['targetUserId']),
-    }.where((id) => id != null).toSet();
+      // Get all unique user IDs for mapping names
+      final userIds = {
+        ...submissions.map((s) => s['submittedBy']),
+        ...submissions.map((s) => s['targetUserId']),
+      }.where((id) => id != null).toSet();
 
-    final userDocs = await FirebaseFirestore.instance
-        .collection('users')
-        .where(FieldPath.documentId, whereIn: userIds.toList())
-        .get();
+      final userDocs = await FirebaseFirestore.instance
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: userIds.toList())
+          .get();
 
-    // Map user IDs to names
-    final userIdToName = {
-      for (var doc in userDocs.docs) doc.id: doc.data()['name'] ?? 'Tidak diketahui',
-    };
-
-    // Add user names to submissions
-    return submissions.map((submission) {
-      return {
-        ...submission,
-        'submittedByName': userIdToName[submission['submittedBy']],
-        'targetUserName': userIdToName[submission['targetUserId']],
+      // Map user IDs to names
+      final userIdToName = {
+        for (var doc in userDocs.docs)
+          doc.id: doc.data()['name'] ?? 'Tidak diketahui',
       };
-    }).toList();
-  } catch (e) {
-    print('Error fetching submissions: $e');
-    return [];
+
+      // Add user names to submissions
+      return submissions.map((submission) {
+        return {
+          ...submission,
+          'submittedByName': userIdToName[submission['submittedBy']],
+          'targetUserName': userIdToName[submission['targetUserId']],
+        };
+      }).toList();
+    } catch (e) {
+      print('Error fetching submissions: $e');
+      return [];
+    }
   }
-}
 
   Future<void> _updateSubmissionStatus(String submissionId, String status,
       {String? reason}) async {
