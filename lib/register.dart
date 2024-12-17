@@ -196,7 +196,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       decoration: InputDecoration(
                         labelText: 'Nama',
                         filled: true,
-                        fillColor: Colors.white.withOpacity(0.8),
+                        fillColor: Colors.white,
                         border: UnderlineInputBorder(),
                       ),
                     ),
@@ -210,7 +210,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       decoration: InputDecoration(
                         labelText: 'Email',
                         filled: true,
-                        fillColor: Colors.white.withOpacity(0.8),
+                        fillColor: Colors.white,
                         border: UnderlineInputBorder(),
                       ),
                     ),
@@ -224,7 +224,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       decoration: InputDecoration(
                         labelText: 'Kata Sandi',
                         filled: true,
-                        fillColor: Colors.white.withOpacity(0.8),
+                        fillColor: Colors.white,
                         border: UnderlineInputBorder(),
                       ),
                       obscureText: true,
@@ -239,7 +239,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       decoration: InputDecoration(
                         labelText: 'Pilih Role',
                         filled: true,
-                        fillColor: Colors.white.withOpacity(0.8),
+                        fillColor: Colors.white,
                         border: UnderlineInputBorder(),
                       ),
                       value: _selectedRole,

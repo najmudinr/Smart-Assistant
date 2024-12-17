@@ -75,35 +75,38 @@ class _ProductPageState extends State<ProductPage> {
   }
 
   Future<void> _getUserLocation() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      print("Location services are disabled.");
-      return;
-    }
+  bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+  if (!serviceEnabled) {
+    print("Location services are disabled.");
+    return;
+  }
 
-    LocationPermission permission = await Geolocator.checkPermission();
+  LocationPermission permission = await Geolocator.checkPermission();
+  if (permission == LocationPermission.denied) {
+    permission = await Geolocator.requestPermission();
     if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        print("Location permissions are denied.");
-        return;
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      print("Location permissions are permanently denied.");
+      print("Location permissions are denied.");
       return;
     }
+  }
 
+  if (permission == LocationPermission.deniedForever) {
+    print("Location permissions are permanently denied.");
+    return;
+  }
+
+  try {
     Position position = await Geolocator.getCurrentPosition(
       // ignore: deprecated_member_use
       desiredAccuracy: LocationAccuracy.high,
     );
-
     setState(() {
       _userLocation = position;
     });
+  } catch (e) {
+    print("Error getting location: $e");
   }
+}
 
   double _calculateDistance(
       double lat1, double lon1, double lat2, double lon2) {

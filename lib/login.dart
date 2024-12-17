@@ -100,7 +100,7 @@ class _LoginPageState extends State<LoginPage> {
                       decoration: InputDecoration(
                         labelText: 'Email',
                         filled: true,
-                        fillColor: Colors.white.withOpacity(0.8),
+                        fillColor: Colors.white,
                         border: UnderlineInputBorder(),
                       ),
                     ),
@@ -114,7 +114,7 @@ class _LoginPageState extends State<LoginPage> {
                       decoration: InputDecoration(
                         labelText: 'Kata Sandi',
                         filled: true,
-                        fillColor: Colors.white.withOpacity(0.8),
+                        fillColor: Colors.white,
                         border: UnderlineInputBorder(),
                       ),
                       obscureText: true,

@@ -42,7 +42,7 @@ class _NewsEventPageState extends State<NewsEventPage>
             indicatorColor: Colors.teal,
             tabs: [
               Tab(text: "Berita dan Pengumuman"),
-              Tab(text: "Tanya Komunitas"),
+              Tab(text: "Laporkan Kejadian"),
             ],
           ),
         ),
