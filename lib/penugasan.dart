@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:smartassistant/detailpenugasan.dart';
-import 'package:smartassistant/services/addtaskform.dart';
+import 'package:smartassistant/widgets/addtaskform.dart';
 import 'package:smartassistant/services/helper_tugas.dart';
 
 class PenugasanPage extends StatefulWidget {
