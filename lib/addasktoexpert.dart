@@ -1,53 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class AddComdevPage extends StatefulWidget {
+class AddAskToExpertPage extends StatefulWidget {
   @override
-  State<AddComdevPage> createState() => _AddComdevPageState();
+  _AddAskToExpertPageState createState() => _AddAskToExpertPageState();
 }
 
-class _AddComdevPageState extends State<AddComdevPage> {
+class _AddAskToExpertPageState extends State<AddAskToExpertPage> {
   final TextEditingController _questionController = TextEditingController();
-  bool _isLoading = false;
-  List<String> _suggestedQuestions = []; // Contoh data dummy, bisa diganti dengan real data
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Function to simulate fetching suggested questions
-  void _fetchSuggestedQuestions(String query) {
-    setState(() {
-      _suggestedQuestions = [
-        "Apa itu Flutter?",
-        "Bagaimana cara menggunakan Firebase?",
-        "Apa kelebihan Dart dibandingkan JavaScript?"
-      ];
-    });
-  }
+  void _submitQuestion() async {
+    final question = _questionController.text.trim();
+    if (question.isEmpty) return;
 
-  // Function to handle submitting the question
-  void _submitQuestion() {
-    setState(() {
-      _isLoading = true;
+    await _firestore.collection('questions').add({
+      'question': question,
+      'answer': null,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
     });
 
-    // Simulate a delay for submitting the question
-    Future.delayed(Duration(seconds: 2), () {
-      setState(() {
-        _isLoading = false;
-      });
-
-      // Show a dialog or redirect to another page
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('Pertanyaan Diajukan'),
-          content: Text('Pertanyaan Anda telah diajukan ke sistem.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('OK'),
-            ),
-          ],
-        ),
-      );
-    });
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Pertanyaan berhasil diajukan!')),
+    );
   }
 
   @override
@@ -60,37 +37,19 @@ class _AddComdevPageState extends State<AddComdevPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
+          children: [
             TextField(
               controller: _questionController,
-              onChanged: _fetchSuggestedQuestions,
-              maxLines: 3,
               decoration: InputDecoration(
-                hintText: 'Ketik pertanyaan Anda di sini...',
+                labelText: 'Masukkan Pertanyaan',
                 border: OutlineInputBorder(),
               ),
             ),
-            SizedBox(height: 10),
-            if (_suggestedQuestions.isNotEmpty) ...[
-              Text(
-                'Pertanyaan yang Mungkin Relevan:',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              ..._suggestedQuestions.map((question) => ListTile(
-                    title: Text(question),
-                    onTap: () {
-                      // User can select a suggested question
-                      _questionController.text = question;
-                    },
-                  )),
-            ],
-            Spacer(),
-            _isLoading
-                ? Center(child: CircularProgressIndicator())
-                : ElevatedButton(
-                    onPressed: _submitQuestion,
-                    child: Text('Ajukan Pertanyaan'),
-                  ),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _submitQuestion,
+              child: Text('Kirim Pertanyaan'),
+            ),
           ],
         ),
       ),

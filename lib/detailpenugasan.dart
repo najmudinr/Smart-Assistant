@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:smartassistant/widgets/followupform.dart';
@@ -124,6 +125,158 @@ class _DetailPenugasanState extends State<DetailPenugasan> {
     }
   }
 
+  void _showConsiderationForm() {
+    TextEditingController reasonController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Ajukan Pertimbangan'),
+          content: TextField(
+            controller: reasonController,
+            decoration: InputDecoration(
+              hintText: 'Masukkan alasan pertimbangan...',
+            ),
+            maxLines: 3,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (reasonController.text.trim().isNotEmpty) {
+                  await FirebaseFirestore.instance
+                      .collection('tasks')
+                      .doc(widget.taskData['id'])
+                      .update({
+                    'status': 'Menunggu Pertimbangan',
+                    'reasonForConsideration': reasonController.text.trim(),
+                  });
+
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Pertimbangan berhasil diajukan')),
+                  );
+                }
+              },
+              child: Text('Kirim'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showEditTaskDialog() {
+    TextEditingController descriptionController =
+        TextEditingController(text: widget.taskData['description']);
+    DateTime? selectedDate;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Perbarui Tugas'),
+          content: SingleChildScrollView(
+            child: Column(
+              children: [
+                TextField(
+                  controller: descriptionController,
+                  decoration: InputDecoration(hintText: 'Deskripsi Tugas'),
+                ),
+                SizedBox(height: 16),
+                Row(
+                  children: [
+                    Text('Tenggat Waktu:'),
+                    Spacer(),
+                    TextButton(
+                      onPressed: () async {
+                        DateTime? pickedDate = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2101),
+                        );
+
+                        if (pickedDate != null) {
+                          TimeOfDay? pickedTime = await showTimePicker(
+                            context: context,
+                            initialTime: TimeOfDay.now(),
+                          );
+
+                          if (pickedTime != null) {
+                            setState(() {
+                              selectedDate = DateTime(
+                                pickedDate.year,
+                                pickedDate.month,
+                                pickedDate.day,
+                                pickedTime.hour,
+                                pickedTime.minute,
+                              );
+                            });
+                          }
+                        }
+                      },
+                      child: Text(
+                        selectedDate == null
+                            ? 'Pilih Tanggal & Waktu'
+                            : DateFormat('yyyy-MM-dd HH:mm')
+                                .format(selectedDate!),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (selectedDate == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Tenggat waktu harus dipilih')),
+                  );
+                  return;
+                }
+
+                await FirebaseFirestore.instance
+                    .collection('tasks')
+                    .doc(widget.taskData['id'])
+                    .update({
+                  'status': 'Progress',
+                  'dueDate': selectedDate!.toIso8601String(),
+                  'description': descriptionController.text.trim(),
+                  'considerationResponse': 'Diterima',
+                  'creatorNote': 'Tugas diperbarui berdasarkan pertimbangan',
+                });
+
+                Navigator.pop(context);
+                setState(() {
+                  widget.taskData['status'] = 'Progress';
+                });
+
+                // Panggil ulang data untuk merefresh UI
+                await _fetchFollowUpPlans();
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Tugas berhasil diperbarui')),
+                );
+              },
+              child: Text('Simpan'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _fetchAssignedToName() async {
     try {
       final assignedToId = widget.taskData['assignedTo'];
@@ -162,6 +315,117 @@ class _DetailPenugasanState extends State<DetailPenugasan> {
     );
   }
 
+  Future<List<Map<String, dynamic>>> _fetchUsers() async {
+    try {
+      QuerySnapshot snapshot =
+          await FirebaseFirestore.instance.collection('users').get();
+
+      return snapshot.docs.map((doc) {
+        return {
+          'id': doc.id,
+          'name': doc['name'],
+        };
+      }).toList();
+    } catch (e) {
+      print("Error fetching users: $e");
+      return [];
+    }
+  }
+
+  void _showDispositionDialog() async {
+    String? selectedUser;
+    List<Map<String, dynamic>> usersList = await _fetchUsers();
+
+    if (usersList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Tidak ada user yang tersedia untuk disposisi.')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setDialogState) {
+            return AlertDialog(
+              title: Text("Disposisi Tugas"),
+              content: DropdownButtonFormField<String>(
+                hint: Text("Pilih user untuk diteruskan"),
+                value: selectedUser,
+                onChanged: (String? newValue) {
+                  print('User selected: $newValue');
+                  setDialogState(() {
+                    selectedUser = newValue;
+                  });
+                  print(
+                      'Dialog Button enabled: ${selectedUser != null && selectedUser != widget.currentUserId}');
+                },
+                items: usersList.map((user) {
+                  print('Dropdown item: ${user['id']} - ${user['name']}');
+                  return DropdownMenuItem<String>(
+                    value: user['id'],
+                    child: Text(user['name']!),
+                  );
+                }).toList(),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: Text("Batal"),
+                ),
+                ElevatedButton(
+                  onPressed: selectedUser == null ||
+                          selectedUser == widget.currentUserId
+                      ? null
+                      : () {
+                          print('Tombol ditekan untuk user: $selectedUser');
+                          _forwardTask(selectedUser!);
+                          Navigator.pop(context);
+                        },
+                  child: Text("Teruskan"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _forwardTask(String newAssignee) async {
+    print('Forwarding task to: $newAssignee'); // Debugging awal
+    try {
+      await FirebaseFirestore.instance
+          .collection('tasks')
+          .doc(widget.taskData['id'])
+          .update({
+        'assignedTo': newAssignee,
+        'status': 'Diteruskan',
+      });
+
+      print('Task forwarded successfully'); // Debugging sukses
+      setState(() {
+        widget.taskData['assignedTo'] = newAssignee;
+        widget.taskData['status'] = 'Diteruskan';
+      });
+
+      // await _addLog('Tugas diteruskan ke pengguna: $newAssignee');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Tugas berhasil diteruskan")),
+      );
+    } catch (e) {
+      print('Error forwarding task: $e'); // Debugging error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Gagal meneruskan tugas: $e")),
+      );
+    }
+  }
+
   String _formatDueDate() {
     if (widget.taskData['dueDate'] != null) {
       if (widget.taskData['dueDate'] is Timestamp) {
@@ -188,6 +452,7 @@ class _DetailPenugasanState extends State<DetailPenugasan> {
 
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.white,
         title: Text(
           'Detail Penugasan',
           style: TextStyle(color: Colors.black),
@@ -195,22 +460,31 @@ class _DetailPenugasanState extends State<DetailPenugasan> {
         elevation: 0,
         iconTheme: IconThemeData(color: Colors.black),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: RefreshIndicator(
+        onRefresh: _refreshData, // Panggil fungsi refresh manual
         child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildTaskHeader(taskName, formattedDueDate),
-              SizedBox(height: 16),
-              _buildTaskStatus(status, progress),
-              SizedBox(height: 16),
-              _buildTaskDescription(),
-              SizedBox(height: 16),
-              _buildFollowUpPlans(),
-              SizedBox(height: 16),
-              _buildActionButtons(),
-            ],
+          physics:
+              AlwaysScrollableScrollPhysics(), // Agar selalu bisa ditarik ke bawah
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildTaskHeader(taskName, formattedDueDate),
+                SizedBox(height: 16),
+                if (widget.currentUserId == widget.taskData['creator'])
+                  _buildConsiderationReview(),
+                _buildTaskStatus(status, progress),
+                SizedBox(height: 16),
+                _buildTaskDescription(),
+                SizedBox(height: 16),
+                _buildFollowUpPlans(),
+                SizedBox(height: 16),
+                _buildActionButtons(),
+                // Divider(),
+                // _buildActivityLog(),
+              ],
+            ),
           ),
         ),
       ),
@@ -363,6 +637,9 @@ class _DetailPenugasanState extends State<DetailPenugasan> {
     final pendingOrRejectedPlans =
         followUpPlans.where((plan) => plan['status'] != 'Approved').toList();
 
+    bool isAssignedUser = widget.currentUserId == widget.taskData['assignedTo'];
+    bool isCreator = widget.currentUserId == widget.taskData['creator'];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -387,7 +664,9 @@ class _DetailPenugasanState extends State<DetailPenugasan> {
             return CheckboxListTile(
               title: Text(plan['plan'] ?? 'Rencana tidak tersedia'),
               value: checkboxValues[plan['id']] ?? false,
-              onChanged: (value) => _updateCheckbox(plan['id'], value),
+              onChanged: isAssignedUser
+                  ? (value) => _updateCheckbox(plan['id'], value)
+                  : null,
               controlAffinity: ListTileControlAffinity.leading,
             );
           }),
@@ -402,13 +681,15 @@ class _DetailPenugasanState extends State<DetailPenugasan> {
                 children: [
                   Text('Status: ${plan['status'] ?? 'Tidak Diketahui'}'),
                   if (plan['status'] == 'Rejected' && plan['reason'] != null)
-                    Text('Alasan Ditolak: ${plan['reason']}',
-                        style: TextStyle(color: Colors.red)),
+                    Text(
+                      'Alasan Ditolak: ${plan['reason']}',
+                      style: TextStyle(color: Colors.red),
+                    ),
                 ],
               ),
-              trailing: widget.currentUserId == widget.taskData['creator'] &&
-                      plan['status'] == 'Pending'
-                  ? _buildFollowUpActionButtons(plan['id'])
+              trailing: isCreator && plan['status'] == 'Pending'
+                  ? _buildFollowUpActionButtons(
+                      plan['id']) // Creator bisa menerima/menolak
                   : null,
               onTap: () {
                 if (widget.currentUserId == widget.taskData['assignedTo'] &&
@@ -439,56 +720,105 @@ class _DetailPenugasanState extends State<DetailPenugasan> {
   }
 
   Widget _buildActionButtons() {
-    if (followUpPlans.isNotEmpty ||
-        widget.currentUserId == widget.taskData['creator']) {
-      return Container(); // Do not display buttons if there are follow-up plans or the user is the task creator
+    // Identifikasi user
+    bool isAssignedUser = widget.currentUserId == widget.taskData['assignedTo'];
+    bool isRejected = widget.taskData['status'] == 'Rejected';
+    bool isCreator = widget.currentUserId == widget.taskData['creator'];
+    bool hasSubmittedReason = widget.taskData['status'] ==
+        'Menunggu Pertimbangan'; // Status 'Menunggu Pertimbangan'
+
+    // Tombol tidak ditampilkan jika user adalah creator
+    if (isCreator) {
+      return Container(); // Tidak menampilkan tombol sama sekali untuk creator
     }
 
+    // Tombol dinonaktifkan untuk penerima tugas jika status 'Menunggu Pertimbangan' atau 'Rejected'
+    if (followUpPlans.isNotEmpty ||
+        hasSubmittedReason ||
+        (isAssignedUser && isRejected)) {
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.center,
+        children: [
+          ElevatedButton.icon(
+            onPressed: null, // Dinonaktifkan
+            icon: Icon(Icons.check, color: Colors.grey),
+            label: Text('Tindak Lanjut', style: TextStyle(color: Colors.grey)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.grey[300],
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: null, // Dinonaktifkan
+            icon: Icon(Icons.cancel, color: Colors.grey),
+            label: Text('Ajukan Pertimbangan',
+                style: TextStyle(color: Colors.grey)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.grey[300],
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: null, // Dinonaktifkan
+            icon: Icon(Icons.forward, color: Colors.grey),
+            label: Text('Disposisi/Diteruskan',
+                style: TextStyle(color: Colors.grey)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.grey[300],
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Tombol tetap aktif jika status memungkinkan
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       alignment: WrapAlignment.center,
       children: [
         ElevatedButton.icon(
-          onPressed: () {
-            String taskId = widget.taskData['id'];
-            if (taskId.isNotEmpty) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => FollowUpForm(
-                    taskId: taskId,
-                    onPlanAdded: () {
-                      _fetchFollowUpPlans();
-                    },
-                    followUpId: '',
-                    currentPlan: '',
-                    onPlanUpdated: () {}, // Update UI after input
-                  ),
-                ),
-              );
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Task ID tidak ditemukan!')),
-              );
-            }
-          },
+          onPressed: hasSubmittedReason
+              ? null // Dinonaktifkan jika sudah mengajukan alasan
+              : () {
+                  String taskId = widget.taskData['id'];
+                  if (taskId.isNotEmpty) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => FollowUpForm(
+                          taskId: taskId,
+                          onPlanAdded: () {
+                            _fetchFollowUpPlans();
+                          },
+                          followUpId: '',
+                          currentPlan: '',
+                          onPlanUpdated: () {}, // Update UI after input
+                        ),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Task ID tidak ditemukan!')),
+                    );
+                  }
+                },
           icon: Icon(Icons.check),
           label: Text('Tindak Lanjut'),
           style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
         ),
         ElevatedButton.icon(
-          onPressed: () {
-            // Logic for submitting consideration
-          },
+          onPressed: hasSubmittedReason
+              ? null // Dinonaktifkan jika sudah mengajukan alasan
+              : _showConsiderationForm,
           icon: Icon(Icons.cancel),
           label: Text('Ajukan Pertimbangan'),
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
         ),
         ElevatedButton.icon(
-          onPressed: () {
-            // Logic for disposition/forwarding
-          },
+          onPressed: hasSubmittedReason
+              ? null // Dinonaktifkan jika sudah mengajukan alasan
+              : _showDispositionDialog,
           icon: Icon(Icons.forward),
           label: Text('Disposisi/Diteruskan'),
           style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
@@ -496,6 +826,227 @@ class _DetailPenugasanState extends State<DetailPenugasan> {
       ],
     );
   }
+
+  Widget _buildConsiderationReview() {
+    if (widget.taskData['status'] == 'Menunggu Pertimbangan') {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Alasan Pertimbangan:',
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          Text(widget.taskData['reasonForConsideration'] ?? '-'),
+          SizedBox(height: 8),
+          Wrap(
+            spacing: 8, // Jarak antar tombol
+            runSpacing: 8, // Jarak antar baris jika meluap
+            alignment: WrapAlignment.start,
+            children: [
+              ElevatedButton(
+                onPressed: () async {
+                  _showEditTaskDialog();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  minimumSize: Size(100, 40), // Tentukan ukuran minimum tombol
+                ),
+                child: Text('Terima Pertimbangan'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  TextEditingController rejectionNoteController =
+                      TextEditingController();
+
+                  showDialog(
+                    context: context,
+                    builder: (context) {
+                      return AlertDialog(
+                        title: Text('Alasan Penolakan'),
+                        content: TextField(
+                          controller: rejectionNoteController,
+                          decoration: InputDecoration(
+                            hintText: 'Masukkan catatan tambahan...',
+                          ),
+                          maxLines: 3,
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: Text('Batal'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () async {
+                              await FirebaseFirestore.instance
+                                  .collection('tasks')
+                                  .doc(widget.taskData['id'])
+                                  .update({
+                                'status': 'Progress',
+                                'considerationResponse': 'Ditolak',
+                                'creatorNote':
+                                    rejectionNoteController.text.trim(),
+                              });
+
+                              Navigator.pop(context);
+                              setState(() {
+                                widget.taskData['status'] = 'Progress';
+                              });
+
+                              // Panggil ulang data untuk merefresh UI
+                              await _fetchFollowUpPlans();
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Pertimbangan ditolak')),
+                              );
+                            },
+                            child: Text('Kirim'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  minimumSize: Size(100, 40), // Tentukan ukuran minimum tombol
+                ),
+                child: Text('Tolak Pertimbangan'),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+    return Container();
+  }
+
+  //    Widget _buildActivityLog() {
+  //   return Column(
+  //     children: [
+  //       Expanded(
+  //         child: StreamBuilder<QuerySnapshot>(
+  //           stream: FirebaseFirestore.instance
+  //               .collection('tasks')
+  //               .doc(widget.taskData['id'])
+  //               .collection('activityLog')
+  //               .orderBy('timestamp', descending: true)
+  //               .snapshots(),
+  //           builder: (context, snapshot) {
+  //             if (snapshot.connectionState == ConnectionState.waiting) {
+  //               return Center(child: CircularProgressIndicator());
+  //             }
+
+  //             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+  //               return Center(child: Text('Belum ada aktivitas.'));
+  //             }
+
+  //             return ListView.builder(
+  //               reverse: true,
+  //               itemCount: snapshot.data!.docs.length,
+  //               itemBuilder: (context, index) {
+  //                 var log = snapshot.data!.docs[index].data()
+  //                     as Map<String, dynamic>;
+  //                 return ListTile(
+  //                   leading: CircleAvatar(
+  //                     child: Text(log['userName']?.substring(0, 1) ?? '-'),
+  //                   ),
+  //                   title: Text(log['description']),
+  //                   subtitle: Text(
+  //                     DateFormat('dd MMM yyyy, HH:mm').format(
+  //                       (log['timestamp'] as Timestamp).toDate(),
+  //                     ),
+  //                   ),
+  //                 );
+  //               },
+  //             );
+  //           },
+  //         ),
+  //       ),
+  //       Padding(
+  //         padding: const EdgeInsets.all(8.0),
+  //         child: Row(
+  //           children: [
+  //             Expanded(
+  //               child: TextField(
+  //                 controller: _activityController,
+  //                 decoration: InputDecoration(
+  //                   hintText: 'Tulis pembaruan atau diskusi...',
+  //                   border: OutlineInputBorder(),
+  //                 ),
+  //               ),
+  //             ),
+  //             SizedBox(width: 8),
+  //             ElevatedButton.icon(
+  //               onPressed: _sendActivityUpdate,
+  //               icon: Icon(Icons.send),
+  //               label: Text('Kirim'),
+  //             ),
+  //           ],
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
+
+// final TextEditingController _activityController = TextEditingController();
+
+// void _sendActivityUpdate() async {
+//     if (_activityController.text.trim().isEmpty) return;
+
+//     User? currentUser = FirebaseAuth.instance.currentUser;
+
+//     await FirebaseFirestore.instance
+//         .collection('tasks')
+//         .doc(widget.taskData['id'])
+//         .collection('activityLog')
+//         .add({
+//       'userId': currentUser?.uid,
+//       'userName': currentUser?.displayName ?? 'User',
+//       'description': _activityController.text.trim(),
+//       'timestamp': FieldValue.serverTimestamp(),
+//     });
+
+//     _activityController.clear();
+//   }
+
+//  Future<void> _addLog(String description) async {
+//     User? currentUser = FirebaseAuth.instance.currentUser;
+
+//     await FirebaseFirestore.instance
+//         .collection('tasks')
+//         .doc(widget.taskData['id'])
+//         .collection('activityLog')
+//         .add({
+//       'userId': currentUser?.uid,
+//       'userName': currentUser?.displayName ?? 'User',
+//       'description': description,
+//       'timestamp': FieldValue.serverTimestamp(),
+//     });
+//   }
+
+//   Future<void> _logFollowUpActivity(String planId, bool isApproved) async {
+//     String activity = isApproved
+//         ? 'Creator menyetujui rencana aktivitas tindak lanjut dengan ID $planId.'
+//         : 'Creator menolak rencana aktivitas tindak lanjut dengan ID $planId.';
+
+//     await _addLog(activity);
+//   }
+
+//   Future<void> _logProgressUpdate(String progressDescription) async {
+//     String activity = 'User melakukan progress pada penugasan: $progressDescription.';
+//     await _addLog(activity);
+//   }
+
+//   Future<void> _logConsideration(String considerationDescription, bool isApproved) async {
+//     String activity = isApproved
+//         ? 'Creator menyetujui pertimbangan: $considerationDescription.'
+//         : 'Creator menolak pertimbangan: $considerationDescription.';
+
+//     await _addLog(activity);
+//   }
+
+//   Future<void> _logTaskDisposition(String newUserId) async {
+//     String activity = 'User melakukan disposisi penugasan ke user dengan ID $newUserId.';
+//     await _addLog(activity);
+//   }
 
   Future<void> _updateFollowUpStatus(String followUpId, String status) async {
     if (status == 'Rejected') {
@@ -534,6 +1085,30 @@ class _DetailPenugasanState extends State<DetailPenugasan> {
       } catch (e) {
         print('Error updating follow-up status: $e');
       }
+    }
+  }
+
+  Future<void> _refreshData() async {
+    try {
+      // Muat ulang data tugas
+      DocumentSnapshot taskDoc = await FirebaseFirestore.instance
+          .collection('tasks')
+          .doc(widget.taskData['id'])
+          .get();
+
+      if (taskDoc.exists) {
+        setState(() {
+          widget.taskData.addAll(taskDoc.data() as Map<String, dynamic>);
+        });
+      }
+
+      // Muat ulang rencana tindak lanjut
+      await _fetchFollowUpPlans();
+    } catch (e) {
+      print('Error refreshing data: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal memuat ulang data.')),
+      );
     }
   }
 

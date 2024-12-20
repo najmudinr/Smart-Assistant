@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:smartassistant/detailpenugasan.dart';
 import 'package:smartassistant/widgets/addtaskform.dart';
 import 'package:smartassistant/services/helper_tugas.dart';
+import 'package:rxdart/rxdart.dart';
 
 class PenugasanPage extends StatefulWidget {
   @override
@@ -82,6 +83,30 @@ class _PenugasanPageState extends State<PenugasanPage> {
     }
   }
 
+  Stream<List<QueryDocumentSnapshot>> _getTasksStream() {
+    User? currentUser = FirebaseAuth.instance.currentUser;
+
+    final assignedToStream = FirebaseFirestore.instance
+        .collection('tasks')
+        .where('assignedTo', isEqualTo: currentUser?.uid)
+        .snapshots()
+        .map((snapshot) => snapshot.docs);
+
+    final creatorStream = FirebaseFirestore.instance
+        .collection('tasks')
+        .where('creator', isEqualTo: currentUser?.uid)
+        .snapshots()
+        .map((snapshot) => snapshot.docs);
+
+    // Gabungkan kedua stream menggunakan Rx.combineLatest2
+    return Rx.combineLatest2<List<QueryDocumentSnapshot>,
+        List<QueryDocumentSnapshot>, List<QueryDocumentSnapshot>>(
+      assignedToStream,
+      creatorStream,
+      (assignedTasks, createdTasks) => [...assignedTasks, ...createdTasks],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -92,7 +117,10 @@ class _PenugasanPageState extends State<PenugasanPage> {
           style: TextStyle(color: Colors.black),
         ),
       ),
-      body: _buildTaskList(),
+      body: RefreshIndicator(
+        onRefresh: _refreshTaskList, // Tambahkan fungsi refresh
+        child: _buildTaskList(), // Konten utama daftar tugas
+      ),
       floatingActionButton: _canShowFab
           ? FloatingActionButton.extended(
               onPressed: () {
@@ -108,31 +136,8 @@ class _PenugasanPageState extends State<PenugasanPage> {
   }
 
   Widget _buildTaskList() {
-    // Check current user
-    User? currentUser = FirebaseAuth.instance.currentUser;
-
-    // Stream: Combine tasks assigned to user and tasks created by user
-    Stream<List<QueryDocumentSnapshot>> combinedStream = FirebaseFirestore
-        .instance
-        .collection('tasks')
-        .where('assignedTo', isEqualTo: currentUser?.uid)
-        .snapshots()
-        .asyncMap((assignedSnapshot) async {
-      // Fetch tasks created by the user
-      var createdSnapshot = await FirebaseFirestore.instance
-          .collection('tasks')
-          .where('creator', isEqualTo: currentUser?.uid)
-          .get();
-
-      // Combine both streams
-      return [
-        ...assignedSnapshot.docs,
-        ...createdSnapshot.docs,
-      ];
-    });
-
     return StreamBuilder<List<QueryDocumentSnapshot>>(
-      stream: combinedStream,
+      stream: _getTasksStream(), // Panggil stream gabungan
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(child: CircularProgressIndicator());
@@ -142,7 +147,7 @@ class _PenugasanPageState extends State<PenugasanPage> {
           return Center(child: Text('Belum ada tugas.'));
         }
 
-        // Combine tasks
+        // Dapatkan daftar tugas
         List<QueryDocumentSnapshot> tasks = snapshot.data!;
 
         return ListView.separated(
@@ -154,6 +159,33 @@ class _PenugasanPageState extends State<PenugasanPage> {
           },
         );
       },
+    );
+  }
+
+// Stream untuk menggabungkan tugas berdasarkan assignedTo dan creator
+  Stream<List<QueryDocumentSnapshot>> getTasksStream() {
+    User? currentUser = FirebaseAuth.instance.currentUser;
+
+    // Stream tugas yang diberikan kepada user (assignedTo)
+    final assignedToStream = FirebaseFirestore.instance
+        .collection('tasks')
+        .where('assignedTo', isEqualTo: currentUser?.uid)
+        .snapshots()
+        .map((snapshot) => snapshot.docs);
+
+    // Stream tugas yang dibuat oleh user (creator)
+    final creatorStream = FirebaseFirestore.instance
+        .collection('tasks')
+        .where('creator', isEqualTo: currentUser?.uid)
+        .snapshots()
+        .map((snapshot) => snapshot.docs);
+
+    // Gabungkan kedua stream menggunakan Rx.combineLatest2
+    return Rx.combineLatest2<List<QueryDocumentSnapshot>,
+        List<QueryDocumentSnapshot>, List<QueryDocumentSnapshot>>(
+      assignedToStream,
+      creatorStream,
+      (assignedTasks, createdTasks) => [...assignedTasks, ...createdTasks],
     );
   }
 
@@ -242,6 +274,10 @@ class _PenugasanPageState extends State<PenugasanPage> {
       print('Error fetching user name for UID $uid: $e');
     }
     return 'Tidak Diketahui';
+  }
+
+  Future<void> _refreshTaskList() async {
+    setState(() {});
   }
 
   void _showAddTaskModal(BuildContext context) {
