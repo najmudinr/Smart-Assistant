@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:smartassistant/addasktoexpert.dart';
+import 'package:smartassistant/detailaskexpert.dart';
 
 class ComdevPage extends StatefulWidget {
   @override
@@ -100,7 +101,15 @@ class _ComdevPageState extends State<ComdevPage> {
                           ),
                         ),
                         onTap: () {
-                          // Tindakan ketika pertanyaan diklik
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => DetailQuestionPage(
+                                questionId: question.id,
+                                questionText: data['question'] ?? '',
+                              ),
+                            ),
+                          );
                         },
                       ),
                     );

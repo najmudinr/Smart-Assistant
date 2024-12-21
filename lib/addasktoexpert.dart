@@ -14,7 +14,7 @@ class _AddAskToExpertPageState extends State<AddAskToExpertPage> {
     final question = _questionController.text.trim();
     if (question.isEmpty) return;
 
-    await _firestore.collection('questions').add({
+    await _firestore.collection('askexpert').add({
       'question': question,
       'answer': null,
       'status': 'pending',
